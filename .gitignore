@@ -1,0 +1,8 @@
+work/
+results*
+testdata*
+.nextflow/
+.DS_Store
+.nextflow.log*
+.Rhistory
+.vscode
