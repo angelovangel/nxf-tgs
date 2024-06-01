@@ -1,0 +1,438 @@
+---
+title: |
+  <img style="float: right;" width="150;" src="www/bcl2.png">  FASTQ report    
+  
+output:
+ html_document:
+  highlight: tango
+  theme: cosmo
+  toc: no
+  css: custom.css
+params:
+ author:
+  label: "Author"
+  value: "BCL (KAUST Core Laboratories)"
+  input: text
+ fastq_dir:
+  label: "Path to folder with fastq files (required, absolute path or relative to current folder)"
+  value: "testdata"
+  input: text
+ fastq_pattern:
+  label: "Regex to capture fastq files (and obtain sample names)"
+  value: "fast(q|q.gz)$"
+ sequencer:
+  label: "Sequencing platform"
+  choices: ["Illumina", "Nanopore", "PacBio"]
+  value: "Nanopore"
+  input: select
+ flowcell:
+  label: "Flow cell ID"
+  value: NA
+  input: text
+ rundate:
+  label: "Run date"
+  value: NA
+  input: date
+ user:
+  label: "User"
+  value: NA
+  input: text    
+ rawdata:
+  label: "Save raw analysis data"
+  value: FALSE
+  input: checkbox
+ subsample:
+   label: "Fraction to subsample reads for kmers calculation"
+   input: numeric
+   min: 0.1
+   max: 1
+   step: 0.1
+   value: 1
+---
+
+Generated at `r params$author` on `r format.Date(Sys.time())`.
+
+Run date: <span class="badge"> `r params$rundate` </span>    
+Platform: <span class="badge"> `r params$sequencer` </span>    
+Flow cell: <span class="badge"> `r params$flowcell` </span>    
+User: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="badge"> `r params$user` </span>    
+
+    
+All fastq data is calculated with the [faster](https://github.com/angelovangel/faster) and [fastkmers](https://github.com/angelovangel/fastkmers) programs.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE, 
+                      echo = FALSE, 
+                      warning = FALSE, 
+                      cache = FALSE)
+#=== System requirements ===============================#
+
+# faster, faster2, fastkmers                           #
+
+#=== System requirements ===============================#
+
+#require(seqTools)
+require(stringr)
+require(writexl)
+require(knitr)
+require(DT)
+require(kableExtra)
+require(dplyr)
+require(sparkline)
+require(htmlwidgets)
+require(jsonlite)
+require(parallel) # may be ships with R, so not in the environment.yml
+require(parallelMap)
+
+# important to use the sourced functions in parallel effectively
+# https://stackoverflow.com/questions/16028671/why-does-sourcing-a-script-within-rs-parallel-functions-fail
+parallelMap::parallelSource("global.R")
+
+fastqdir <- normalizePath(params$fastq_dir)
+fastqfiles <- list.files(fastqdir, pattern = params$fastq_pattern, full.names = TRUE, recursive = T)
+
+if(length(fastqfiles) < 1) { 
+  stop(paste0('No fastq files found: ', fastqfiles))
+  }
+
+names(fastqfiles) <- basename(fastqfiles)
+numcores <- ifelse(parallel::detectCores() > 2, parallel::detectCores(), 2)
+
+```
+
+```{r faster_table, echo = F, warning = F, message = F}
+
+stats_headers <- c("file", "num_reads", "bases", "n_bases", 
+									 "min_len", "max_len", "avg_len", "Q1", "Q2", "Q3", 
+									 "N50", "Q20_percent", "Q30_percent")
+
+stats_command <- function(x) {
+  system2(command = "faster", 
+          args = c("-ts", x),
+          stdout = TRUE)
+}
+
+nduplex_command <- function(x) {
+  as.numeric(system2('./nduplex.sh', args = x, stdout = T))
+}
+
+message(paste0('Running faster with ', numcores, ' cores...'))
+# stats is run with full files
+# stats <- mapply(stats_command, fastqfiles)
+stats <- parallel::mcmapply(stats_command, fastqfiles, mc.cores = numcores) #mc.preschedule = T)
+stats_df <- utils::read.table(text = stats, col.names = stats_headers)
+
+#if (params$sequencer == 'Nanopore') {
+nduplex <- parallel::mcmapply(nduplex_command, fastqfiles, mc.cores = numcores)
+dfcols <- c("file", "num_reads", "duplex_reads", "bases", "n_bases", "min_len", "max_len", "avg_len", "N50", "Q20_percent", "Q30_percent")
+# } else {
+#   nduplex <- rep(NA, length(fastqfiles))
+#   dfcols <- c("file", "num_reads", "bases", "n_bases", "min_len", "max_len", "avg_len", "N50", "Q20_percent", "Q30_percent")
+# }
+
+
+#stats <- parallel::mcmapply(stats_command, fastqfiles)
+
+df <- stats_df %>% 
+	dplyr::mutate(file = basename(file)) %>% 
+  dplyr::mutate(duplex_reads = nduplex) %>%
+	dplyr::arrange(file) %>%
+	dplyr::select(dfcols)
+
+# subsample fastqfiles if they are too big, use subsampled for table2 only
+# 
+subs_command <- function(x) {
+    system2(command = "faster", 
+          args = c("--sample", params$subsample, x),
+          stdout = paste0('subsampled/', basename(x))
+          )
+  }
+if (params$subsample < 1) {
+  if (! dir.exists('subsampled') ) {
+  dir.create('subsampled')
+  }
+  parallel::mcmapply(subs_command, fastqfiles, mc.cores = numcores, mc.preschedule = T)
+  # from here on here fastqfiles are the subsampled ones
+  fastqfiles <- list.files('subsampled', pattern = params$fastq_pattern, full.names = TRUE, recursive = F)
+  names(fastqfiles) <- basename(fastqfiles)
+}
+
+
+# these files are 
+#write.csv(df, file = "fastq-stats.csv", row.names = FALSE)
+#write_xlsx(df, "fastq-stats.xlsx", format_headers = TRUE, col_names = TRUE)
+
+# get some summary data
+num_files <- length(fastqfiles)
+num_reads <- df %>% dplyr::summarise(seqs = sum(num_reads)) %>% as.numeric()
+num_duplex_reads <- df %>% dplyr::summarise(seqs = sum(duplex_reads, na.rm = T)) %>% as.numeric()
+num_duplex_reads_text <- system2("./siformat.sh", args = num_duplex_reads, stdout = T)
+num_reads_text <- system2("./siformat.sh", args = num_reads, stdout = T)
+num_bases <- df %>% dplyr::summarise(bases = sum(bases)) %>% as.numeric()
+num_bases_text <- system2("./siformat.sh", args = num_bases, stdout = T)
+```
+
+***
+
+### Number of reads and read quality metrics
+The report contains 
+<blockquote>  
+**`r num_files`** fastq files  
+**`r num_reads_text`** reads (`r num_duplex_reads_text` duplex)    
+**`r num_bases_text`** bases  
+</blockquote>
+
+```{r table1, include=TRUE}
+
+
+DT::datatable(df,
+							escape = F,
+							filter = 'top', 
+							caption = paste0(""),
+					extensions = 'Buttons', 
+					options = list(dom = 'Btp', paging = FALSE,
+												 buttons = c('copy', 'csv', 'excel')
+												 ), 
+					rownames = FALSE, 
+					class = 'hover row-border') %>%
+	DT::formatRound(2:9, 0) %>%
+	DT::formatRound(10:11, 2)
+
+```
+
+***
+
+### Content, phred-score and k-mer metrics
+
+```{r table2, include=TRUE, message=FALSE}
+# sparkline(0) # load dependencies
+# see https://omnipotent.net/jquery.sparkline/#s-docs
+# on how to include both x and y values in spark
+# basically, supply values separated by a colon: x:y,x:y,x:y
+
+
+#---------------------------------#
+# functions for making sparklines	#
+#---------------------------------#
+
+sparkline(0) # load dependencies
+
+spk_tool <- function(label, x, values) {
+   htmlwidgets::JS(
+     sprintf(
+ 		"function(sparkline, options, field){ return %s[field[0].offset]; }",
+     jsonlite::toJSON(paste(label, x, ":",values, sep = " "))
+     )
+   )
+}
+
+# see https://omnipotent.net/jquery.sparkline/#s-docs
+# on how to include both x and y values in spark
+# basically, supply values separated by a colon: x:y,x:y,x:y
+
+spark_gc <- function(gc_density_obj) {
+	spk_chr(paste( round(gc_density_obj$x, digits = 2), ":", gc_density_obj$y, sep = "" ), 
+					lineWidth = 3,
+					fillColor = "#D0D3D4",
+					lineColor = "#5D6D7E",
+					spotColor = FALSE,
+					minSpotColor = FALSE,
+					maxSpotColor = "red",
+					spotRadius = 3,
+					width = 120, height = 40,
+					tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}avg GC: {{x}} {{suffix}}</span>"
+					)
+}
+
+
+spark_phred <- function(phred_density_obj) {
+	#spk_chr(paste( round(phred_density_obj$x, digits = 2), ":", phred_density_obj$y, sep = ""),
+  fillcolor <- "#5D6D7E"
+	spk_chr(round(phred_density_obj$y, digits = 2), 
+					type = "bar",
+					 # to highlight q-value of 30, only array (60 elements) seems to work, don't know how to pass range map here
+					colorMap = c(rep(fillcolor, 19), "red", rep(fillcolor, 9), "red", rep(fillcolor, 19), "red", rep(fillcolor, 19)),
+					width = 140, height = 40,
+					tooltipFormatter = spk_tool("qscore ",phred_density_obj$x, round(phred_density_obj$y, 2))
+					)
+}
+
+# format the tooltip numbers back to their values
+log_formatter <- htmlwidgets::JS(sprintf("function(x){ return Math.round(Math.pow(10, x)); }"))
+	
+# in order to be able to compare across vastly different lengths, use special scale
+spark_len <- function(len_density_obj) {
+	spk_chr(paste( len_density_obj$x, ":", len_density_obj$y, sep = ""), 
+					#type = "bar",
+					lineWidth = 3,
+					fillColor = "#D0D3D4", 
+					lineColor = "#5D6D7E",
+					spotColor = FALSE,
+					minSpotColor = FALSE,
+					maxSpotColor = "red",
+					spotRadius = 3,
+					width = 260, height = 40,
+					tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}length: {{x}} {{suffix}}</span>",
+					numberFormatter = log_formatter
+					)
+}
+
+spark_kmers <- function(kmers_tbl) {
+  fillcolor <- "#5D6D7E"
+	spk_chr(kmers_tbl$counts, type = "bar", 
+	        barColor = "#5D6D7E",
+	        #colorMap = c("red", rep(fillcolor, 15), "red", rep(fillcolor, 15), "red", rep(fillcolor, 15), "red", rep(fillcolor, 15)),
+					width = 220, height = 40,
+					tooltipFormatter = spk_tool("", kmers_tbl$kmer, kmers_tbl$counts)
+					)
+}
+
+spark_duplevel <- function(duplevel_tbl) {
+  fillcolor <- "#5D6D7E"
+	spk_chr(duplevel_tbl$percent, 
+	        type = "bar", 
+	        barColor = "#5D6D7E",
+					width = 60, height = 40,
+					tooltipFormatter = spk_tool("", duplevel_tbl$occ, duplevel_tbl$percent)
+					)
+}
+
+
+
+spark_content <- function(content_tbl) {
+  sl_gc <- sparkline(round(content_tbl$g + content_tbl$c, 3), 
+                     xvalues = content_tbl$cycle, 
+                     lineColor = "#2b83ba", 
+                     fillColor = FALSE, 
+                     lineWidth = 3,
+                     width = 140, height = 40, 
+                     chartRangeMin = 0, chartRangeMax = 1,
+                     tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}cycle: {{x}} GC: {{y}} {{suffix}}</span>")
+  
+  sl_at <- sparkline(round(content_tbl$a + content_tbl$t, 3), 
+                    xvalues = content_tbl$cycle, 
+                    lineColor = "#d7191c", 
+                    lineWidth = 3,
+                    fillColor = FALSE,
+                    width = 140, height = 40, 
+                    chartRangeMin = 0, chartRangeMax = 1,
+                    tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}cycle {{x}} AT: {{y}} {{suffix}}</span>")
+  
+  sl_n <- sparkline(round(content_tbl$n, 3), 
+                    xvalues = content_tbl$cycle, 
+                    lineColor = "#5D6D7E", 
+                    lineWidth = 3,
+                    fillColor = FALSE,
+                    width = 140, height = 40, 
+                    chartRangeMin = 0, chartRangeMax = 1,
+                    tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}cycle {{x}} N: {{y}} {{suffix}}</span>")
+  
+  sl_gcat <- spk_composite(sl_gc, sl_at, options = list(chartRangeMin = 0, chartRangeMax = 1))
+  sl <- spk_composite(sl_gcat, sl_n, options = list(chartRangeMin = 0, chartRangeMax = 1))
+  as.character(htmltools::as.tags(sl))
+}
+
+spark_content_phred <- function(content_tbl) {
+  spk_chr(round(content_tbl$mean_phred, 3), 
+          xvalues = content_tbl$cycle, 
+          type = "line", 
+          lineWidth = 3,
+          lineColor = "#2b83ba", 
+          fillColor = FALSE, width = 140, height = 40, 
+          chartRangeMin = 10, chartRangeMax = 50, 
+          chartRangeClip = TRUE, 
+          normalRangeMin = 0, normalRangeMax = 20, normalRangeColor = "#D0D3D4",
+          tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}cycle: {{x}} phred: {{y}} {{suffix}}</span>")
+}
+
+#
+# main calls to calculate data
+#
+# create rawdata dir if not exists before function calls, then write there
+if(params$rawdata) {
+  if(!dir.exists("rawdata")) {dir.create("rawdata")}  
+}
+
+message(paste0('Running faster/fastkmers with ', numcores, ' cores...'))
+
+gc_density <- parallel::mcmapply(faster_gc, fastqfiles, 
+                                 mc.cores = numcores,
+                                 mc.preschedule = T, 
+                                 SIMPLIFY = FALSE, 
+                                 MoreArgs = list(saveraw = params$rawdata))
+q_score_density <- parallel::mcmapply(faster_qscore, fastqfiles, 
+                                      mc.cores = numcores,
+                                      mc.preschedule = T, 
+                                      SIMPLIFY = FALSE, 
+                                      MoreArgs = list(saveraw = params$rawdata))
+kmers_tbl_list <- parallel::mcmapply(fastkmers, fastqfiles, 
+                                     mc.cores = numcores,
+                                     mc.preschedule = T, 
+                                     SIMPLIFY = FALSE, 
+                                     MoreArgs = list(saveraw = params$rawdata))
+# do length only for ONT or PacBio
+if (params$sequencer != "Illumina") {
+  len_density <- parallel::mcmapply(faster_len, fastqfiles, 
+                                    mc.cores = numcores,
+                                    mc.preschedule = T, 
+                                    SIMPLIFY = FALSE, 
+                                    MoreArgs = list(saveraw = params$rawdata))
+}
+
+# do duplevel only for Illumina
+if(params$sequencer == "Illumina") {
+  
+  duplevel_tbl <- parallel::mcmapply(duplevel, fastqfiles, 
+                                     mc.cores = numcores, 
+                                     mc.preschedule = T, 
+                                     SIMPLIFY = FALSE, 
+                                     MoreArgs = list(saveraw = params$rawdata))
+  content_tbl <- parallel::mcmapply(content_percycle, fastqfiles, 
+                                    mc.cores = numcores,
+                                    mc.preschedule = T,
+                                    SIMPLIFY = FALSE, 
+                                    MoreArgs = list(saveraw = params$rawdata))
+}
+
+
+if (params$sequencer != "Illumina") {
+  gc_df <- data.frame(
+	file = basename(fastqfiles),
+	gc_content_dist = sapply(gc_density, spark_gc),
+	q_score_dist = sapply(q_score_density, spark_phred),
+	len_dist = sapply(len_density, spark_len),
+	kmer_counts = sapply(kmers_tbl_list, spark_kmers), 
+	row.names = NULL
+  )
+} else {
+  gc_df <- data.frame(
+	file = basename(fastqfiles),
+	gc_content_dist = sapply(gc_density, spark_gc),
+	content_percycle = sapply(content_tbl, spark_content),
+	qscore_dist = sapply(q_score_density, spark_phred),
+	qscore_percycle= sapply(content_tbl, spark_content_phred),
+	dupl_rate = sapply(duplevel_tbl, spark_duplevel),
+	kmer_counts = sapply(kmers_tbl_list, spark_kmers), 
+	row.names = NULL
+  )
+}
+
+table2_caption <- ifelse(params$sequencer != "Illumina", 
+                         "Density distributions of GC-content, 'mean' q-score, length and k-mer counts (k = 3). The q-scores 20 and 30 are in red", 
+                         "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts (k = 3). The q-scores 20 and 30 are in red.")
+gc_df %>%
+	dplyr::arrange(file) %>%
+	kableExtra::kbl(escape = F, 
+									caption = table2_caption) %>%
+	kable_styling(fixed_thead = TRUE, bootstrap_options = c("responsive")
+	              )
+
+```
+
+```{r cleanup, include = FALSE}
+if (dir.exists('subsampled')) {
+  unlink('subsampled', recursive = T, force = T)
+}
+```
+

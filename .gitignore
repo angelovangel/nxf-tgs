@@ -1,6 +1,7 @@
 work/
 results*
 testdata*
+*.html
 .nextflow/
 .DS_Store
 .nextflow.log*

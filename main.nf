@@ -9,7 +9,7 @@ log.info """\
     NXF - TGS ONT PIPELINE
     process raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
     ===================================
-    fastq_pass :  ${params.fastq}
+    fastq:  ${params.fastq}
     samplesheet:  ${params.samplesheet}
     outdir     :  ${params.outdir}
     container  :  ${workflow.container}
@@ -46,6 +46,7 @@ process MERGE_READS {
 }
 
 process REPORT {
+    tag "$user"
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.tsv'
 
     input:
@@ -59,6 +60,34 @@ process REPORT {
     echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > faster-report-${user}.tsv
     #parallel -k faster -ts ::: $fastqfiles >> faster-report-${user}.tsv
     faster2 -ts $fastqfiles >> faster-report-${user}.tsv
+    """
+}
+
+process HTMLREPORT {
+    tag "$user"
+    publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html'
+    
+    input:
+    tuple val(user), path(fastqpath)
+
+    output:
+    path('*.html')
+
+    script:
+    """
+    # get run info from fastq header to use in faster-report
+    # it is the same for all users
+    FLOWCELL=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "flow_cell_id=.*" | cut -d" " -f1 | cut -d= -f2)
+    RUNDATE=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "start_time=.*" | cut -d" " -f1 | cut -d= -f2 | cut -dT -f1)
+    if [[ -z "\$FLOWCELL" ]]; then
+        FLOWCELL="NA"
+    fi
+
+    if [[ -z "\$RUNDATE" ]]; then
+        RUNDATE="NA"
+    fi
+    
+    faster-report.R -p . --outfile faster-report-${user} --user ${user} --rundate \$RUNDATE --flowcell \$FLOWCELL
     """
 }
 
@@ -92,13 +121,10 @@ workflow report {
     .map { row -> tuple(row.sample, row.barcode, row.user) }
     .combine(fastq_pass_ch)
     //.view()
-    | MERGE_READS  | groupTuple | REPORT
+    | MERGE_READS  | groupTuple | (REPORT & HTMLREPORT)
 }
 
-// workflow {
-//     //report()
 
-// }
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
@@ -109,5 +135,5 @@ workflow {
             def key = file.name.toString().tokenize('_').get(0)
             return tuple(key, file)
         }
-        .combine(fastq_pass_ch) | view //ASSEMBLY
+        .combine(fastq_pass_ch) | ASSEMBLY
 }
