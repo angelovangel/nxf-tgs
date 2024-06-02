@@ -1,7 +1,7 @@
 params.fastq = "fastq_pass"
 params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
 params.outdir = "${workflow.launchDir}/results-tgs"
-params.pipeline = "wf-clone-validation"
+params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
 
 
 log.info """\
@@ -9,10 +9,11 @@ log.info """\
     NXF - TGS ONT PIPELINE
     process raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
     ===================================
-    fastq:  ${params.fastq}
-    samplesheet:  ${params.samplesheet}
-    outdir     :  ${params.outdir}
-    container  :  ${workflow.container}
+    fastq       : ${params.fastq}
+    samplesheet : ${params.samplesheet}
+    assembly    : ${params.pipeline}
+    outdir      : ${params.outdir}
+    container   : ${workflow.container}
 
     """
     .stripIndent(true)
@@ -30,6 +31,7 @@ wf_samplesheet_ch = samplesheet_ch
     }
 
 process MERGE_READS {
+    container 'aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
 
@@ -46,6 +48,7 @@ process MERGE_READS {
 }
 
 process REPORT {
+    container 'aangeloo/nxf-tgs:latest'
     tag "$user"
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.tsv'
 
@@ -64,6 +67,7 @@ process REPORT {
 }
 
 process HTMLREPORT {
+    container 'aangeloo/nxf-tgs:latest'
     tag "$user"
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html'
     
@@ -91,19 +95,22 @@ process HTMLREPORT {
     """
 }
 
+// no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-     publishDir "$params.outdir/$user", mode: 'copy', pattern: 'output/*'
+    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*{html,txt,fasta,fastq,gbk,bed,json}"
+    //publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*html", saveAs: { filename -> filename.getName }
 
     input:
     tuple val(user), path(samplesheet), path(fastq_pass) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
     
     output:
-    path 'output/*'
+    //path "output/*report.html"
+    path "**"
 
     script:
     """
-    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet
+    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly'
     """
 }
 
@@ -113,7 +120,6 @@ workflow merge_reads {
     .combine(fastq_pass_ch)
     //.view()
     | MERGE_READS
-
 }
 
 workflow report {

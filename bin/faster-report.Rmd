@@ -1,6 +1,6 @@
 ---
 title: |
-  <img style="float: right;" width="150;" src="www/bcl2.png">  FASTQ report    
+  <img style="float: right;" width="150;" src="www/bcl2.png">  FASTQ reads report    
   
 output:
  html_document:

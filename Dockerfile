@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     pandoc nano ksh procps libxt-dev libssl-dev libxml2-dev libfontconfig1-dev parallel
 # libxt-dev is required to solve the segfault error caused by cairoVersion() in R
 
+# RUN curl -s https://get.nextflow.io | bash && chmod +x nextflow && mv nextflow /usr/local/bin/
+
 # setup faster and fastkmers for linux
 RUN wget -P bin https://github.com/angelovangel/faster/releases/download/v0.2.1/x86_64-linux-faster && \
     mv bin/x86_64-linux-faster bin/faster && \
