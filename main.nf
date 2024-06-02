@@ -13,8 +13,6 @@ log.info """\
     samplesheet : ${params.samplesheet}
     assembly    : ${params.pipeline}
     outdir      : ${params.outdir}
-    container   : ${workflow.container}
-
     """
     .stripIndent(true)
 
