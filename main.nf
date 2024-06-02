@@ -31,6 +31,7 @@ wf_samplesheet_ch = samplesheet_ch
 process MERGE_READS {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
+    errorStrategy 'ignore'
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
 
     input:
