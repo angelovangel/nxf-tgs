@@ -2,12 +2,33 @@ params.fastq = "fastq_pass"
 params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
 params.outdir = "${workflow.launchDir}/results-tgs"
 params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+params.help = ""
 
+if (params.help) {
+    helpMessage()
+    exit(0)
+}
+
+def helpMessage() {
+    log.info """\
+    ===================================
+    NXF - TGS ONT PIPELINE
+    process (per user) raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
+    ===================================
+    Usage:
+    -----------------------------------
+    fastq       : path to raw fastq_pass data
+    samplesheet : path to csv with (at least) columns sample, barcode, user
+    assembly    : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+    outdir      : where to save results, default is results-tgs
+    """
+    .stripIndent(true)
+}
 
 log.info """\
     ===================================
     NXF - TGS ONT PIPELINE
-    process raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
+    process (per user) raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
     ===================================
     fastq       : ${params.fastq}
     samplesheet : ${params.samplesheet}
@@ -15,7 +36,6 @@ log.info """\
     outdir      : ${params.outdir}
     """
     .stripIndent(true)
-
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet).splitCsv(header: true)
@@ -31,7 +51,7 @@ wf_samplesheet_ch = samplesheet_ch
 process MERGE_READS {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
-    errorStrategy 'ignore'
+    errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
 
     input:
