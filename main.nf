@@ -154,22 +154,35 @@ workflow prep_samplesheet {
         samplesheet_ch 
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
-        .tap { assembly_ch }
+        .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) } 
         .combine(fastq_pass_ch) 
         //| view()
         .set { prepped_samplesheet_ch } 
     } else {
-        samplesheet_ch \
-        | READEXCEL \
-        | splitCsv(header: true)
-        .tap { assembly_ch }
-        .filter{it -> it.barcode =~ /^barcode*/} \
-        .map { row -> tuple(row.sample, row.barcode, row.user) } \
-        .combine(fastq_pass_ch) \
+        
+        READEXCEL(samplesheet_ch)
+        .splitCsv(header: true)
+        .filter{it -> it.barcode =~ /^barcode*/}
+        .tap { internal_ch }
+        .map { row -> tuple(row.sample, row.barcode, row.user) }
+        .combine(fastq_pass_ch)
         .set { prepped_samplesheet_ch } 
     }
-
+    // generate sample sheets per user and save as files
+    assembly_ch = internal_ch
+        .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
+            sample      = row.sample
+            barcode     = row.barcode
+            size        = row.dna_size
+            user        = row.user
+            ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
+        }
+        .map { file -> 
+            def key = file.name.toString().tokenize('_').get(0)
+            return tuple(key, file)
+        }
+    
     emit:
     prepped_samplesheet_ch
     assembly_ch
@@ -190,19 +203,8 @@ workflow report {
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
     report()
-    
+
     prep_samplesheet().assembly_ch
-    .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
-            sample      = row.sample
-            barcode     = row.barcode
-            size        = row.dna_size
-            user        = row.user
-            ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
-    }
-    .map { file -> 
-            def key = file.name.toString().tokenize('_').get(0)
-            return tuple(key, file)
-    }
     .combine(fastq_pass_ch) \
     | ASSEMBLY
 }

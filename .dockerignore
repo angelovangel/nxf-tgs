@@ -2,5 +2,6 @@
 .nextflow*
 bin*
 work
+output
 results*
 testdata*
