@@ -1,4 +1,5 @@
 work/
+output/
 results*
 testdata*
 *.html

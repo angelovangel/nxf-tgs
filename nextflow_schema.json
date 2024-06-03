@@ -1,0 +1,25 @@
+{
+"fastq": {
+    "type": "string",
+    "format": "path",
+    "description": "Path to raw ONT fastq_pass folder",
+    "help_text": "Path to raw ONT data, e.g. /path/to/fastq_pass"
+},
+"samplesheet": {
+    "type": "string",
+    "format": "path",
+    "description": "Path to",
+    "help_text": "Path to"
+},
+"pipeline": {
+    "type": "string",
+    "default": "wf-clone-validation",
+    "enum": ["wf-clone-validation", "wf-bacterial-genomes", "wf-amplicon"]
+},
+"outdir": {
+    "type": "string",
+    "format": "path",
+    "description": "Path to",
+    "help_text": "Path for output dir"
+}
+}

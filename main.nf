@@ -18,7 +18,7 @@ def helpMessage() {
     Usage:
     -----------------------------------
     fastq       : path to raw fastq_pass data
-    samplesheet : path to csv with (at least) columns sample, barcode, user
+    samplesheet : path to csv or excel with (at least) columns sample, barcode, user
     assembly    : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
     outdir      : where to save results, default is results-tgs
     """
@@ -38,15 +38,31 @@ log.info """\
     .stripIndent(true)
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
-samplesheet_ch = Channel.fromPath(params.samplesheet).splitCsv(header: true)
-wf_samplesheet_ch = samplesheet_ch
-    .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
-            sample      = row.sample
-            barcode     = row.barcode
-            size        = row.dna_size
-            user        = row.user
-            ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
-    }
+samplesheet_ch = Channel.fromPath(params.samplesheet)
+
+// wf_samplesheet_ch = samplesheet_ch
+//     .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
+//             sample      = row.sample
+//             barcode     = row.barcode
+//             size        = row.dna_size
+//             user        = row.user
+//             ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
+//     }
+
+process READEXCEL {
+    container 'aangeloo/nxf-tgs:latest'
+
+    input:
+    path(excelfile)
+
+    output:
+    path("*.csv")
+
+    script:
+    """
+    convert_excel.R $excelfile
+    """
+}
 
 process MERGE_READS {
     container 'aangeloo/nxf-tgs:latest'
@@ -117,7 +133,7 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*{html,txt,fasta,fastq,gbk,bed,json}"
+    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
     //publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*html", saveAs: { filename -> filename.getName }
 
     input:
@@ -132,33 +148,61 @@ process ASSEMBLY {
     nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly'
     """
 }
+workflow prep_samplesheet {
+    main:
+    if (params.samplesheet.endsWith(".csv")) {
+        samplesheet_ch 
+        .splitCsv(header: true)
+        .filter{it -> it.barcode =~ /^barcode*/}
+        .tap { assembly_ch }
+        .map { row -> tuple(row.sample, row.barcode, row.user) } 
+        .combine(fastq_pass_ch) 
+        //| view()
+        .set { prepped_samplesheet_ch } 
+    } else {
+        samplesheet_ch \
+        | READEXCEL \
+        | splitCsv(header: true)
+        .tap { assembly_ch }
+        .filter{it -> it.barcode =~ /^barcode*/} \
+        .map { row -> tuple(row.sample, row.barcode, row.user) } \
+        .combine(fastq_pass_ch) \
+        .set { prepped_samplesheet_ch } 
+    }
 
+    emit:
+    prepped_samplesheet_ch
+    assembly_ch
+}
 workflow merge_reads {
-    samplesheet_ch
-    .map { row -> tuple(row.sample, row.barcode, row.user) }
-    .combine(fastq_pass_ch)
-    //.view()
+    //prep_samplesheet()
+    prep_samplesheet().prepped_samplesheet_ch \
     | MERGE_READS
 }
 
 workflow report {
-    samplesheet_ch
-    .map { row -> tuple(row.sample, row.barcode, row.user) }
-    .combine(fastq_pass_ch)
-    //.view()
-    | MERGE_READS  | groupTuple | (REPORT & HTMLREPORT)
+    prep_samplesheet().prepped_samplesheet_ch \
+    | MERGE_READS \
+    | groupTuple \
+    | (REPORT & HTMLREPORT)
 }
-
-
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
     report()
-    // get user, wf-samplesheet and combine with fastq_pass
-    wf_samplesheet_ch
-        .map { file -> 
+    
+    prep_samplesheet().assembly_ch
+    .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
+            sample      = row.sample
+            barcode     = row.barcode
+            size        = row.dna_size
+            user        = row.user
+            ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
+    }
+    .map { file -> 
             def key = file.name.toString().tokenize('_').get(0)
             return tuple(key, file)
-        }
-        .combine(fastq_pass_ch) | ASSEMBLY
+    }
+    .combine(fastq_pass_ch) \
+    | ASSEMBLY
 }
