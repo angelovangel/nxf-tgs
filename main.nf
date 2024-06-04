@@ -1,6 +1,6 @@
 params.fastq = "fastq_pass"
 params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
-params.outdir = "${workflow.launchDir}/results-tgs"
+params.outdir = "${workflow.launchDir}/output"
 params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
 params.help = ""
 
@@ -20,7 +20,7 @@ def helpMessage() {
     fastq       : path to raw fastq_pass data
     samplesheet : path to csv or excel with (at least) columns sample, barcode, user
     assembly    : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
-    outdir      : where to save results, default is results-tgs
+    outdir      : where to save results, default is output
     """
     .stripIndent(true)
 }
@@ -133,7 +133,7 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
+    publishDir "$params.outdir/$user", mode: "copy", pattern: "output/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
     //publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*html", saveAs: { filename -> filename.getName }
 
     input:
