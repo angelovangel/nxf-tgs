@@ -135,7 +135,7 @@ process HTMLREPORT {
 process ASSEMBLY {
     tag "$user"
     publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
-    //publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*html", saveAs: { filename -> filename.getName }
+    publishDir "$params.outdir", mode: "copy", pattern: "02-assembly/*html", saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // used for epi2me-labs to see as report
 
     input:
     tuple val(user), path(samplesheet), path(fastq_pass) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
