@@ -127,7 +127,7 @@ process HTMLREPORT {
         RUNDATE="NA"
     fi
     
-    faster-report.R -p . --outfile faster-report-${user} --user ${user} --rundate \$RUNDATE --flowcell \$FLOWCELL
+    faster-report.R -p . --outfile ${user}-faster-report --user ${user} --rundate \$RUNDATE --flowcell \$FLOWCELL
     """
 }
 
