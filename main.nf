@@ -39,15 +39,9 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet)
+wf_versions = Channel.from(['wf-clone-validation', 'v1.2.0'], ['wf-amplicon', 'v1.0.4'], ['wf-bacterial-genomes', 'v1.2.0'])
+wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
-// wf_samplesheet_ch = samplesheet_ch
-//     .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
-//             sample      = row.sample
-//             barcode     = row.barcode
-//             size        = row.dna_size
-//             user        = row.user
-//             ["${user}_samplesheet.csv", "alias,barcode,approx_size\n${sample},${barcode},${size}\n"]
-//     }
 
 process READEXCEL {
     container 'aangeloo/nxf-tgs:latest'
@@ -138,7 +132,7 @@ process ASSEMBLY {
     publishDir "$params.outdir", mode: "copy", pattern: "02-assembly/*html", saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // used for epi2me-labs to see as report
 
     input:
-    tuple val(user), path(samplesheet), path(fastq_pass) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
+    tuple val(user), path(samplesheet), path(fastq_pass), val(ver) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
     
     output:
     //path "output/*report.html"
@@ -146,7 +140,7 @@ process ASSEMBLY {
 
     script:
     """
-    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly' -r v1.2.0
+    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly' -r $ver
     """
 }
 workflow prep_samplesheet {
@@ -206,6 +200,8 @@ workflow {
     report()
 
     prep_samplesheet().assembly_ch
-    .combine(fastq_pass_ch) \
+    .combine(fastq_pass_ch)
+    .combine(wf_ver.flatten().last()) \
+    //.join(assembly_versions, by: [0,3]) \
     | ASSEMBLY
 }
