@@ -145,7 +145,7 @@ process ASSEMBLY {
 
     script:
     """
-    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly'
+    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly' -r 'master'
     """
 }
 workflow prep_samplesheet {

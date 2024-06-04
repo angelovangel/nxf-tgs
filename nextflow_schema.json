@@ -15,19 +15,31 @@
         "fastq": {
           "type": "string",
           "format": "directory-path",
-          "fa_icon": "fas fa-folder-open"
+          "fa_icon": "fas fa-folder-open",
+          "description": "Path to raw ONT fastq data (fastq_pass)"
         },
         "samplesheet": {
           "type": "string",
           "format": "file-path",
           "fa_icon": "fas fa-vials",
-          "mimetype": "csv/xlsx"
+          "mimetype": "csv/xlsx",
+          "description": "Path to samplesheet file (.csv or .xlsx)"
         },
         "outdir": {
           "type": "string",
           "format": "directory-path",
           "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
           "fa_icon": "fas fa-poll"
+        },
+        "pipeline": {
+          "type": "string",
+          "enum": [
+            "wf-clone-validation",
+            "wf-amplicon",
+            "wf-bacterial-genomes"
+          ],
+          "fa_icon": "fas fa-server",
+          "description": "Which epi2me assembly pipeline to run"
         }
       }
     },
@@ -54,12 +66,5 @@
     {
       "$ref": "#/definitions/generic_options"
     }
-  ],
-  "properties": {
-    "pipeline": {
-      "type": "string",
-      "enum": ["wf-clone-validation", "wf-amplicon", "wf-bacterial-genomes"],
-      "fa_icon": "fas fa-server"
-    }
-  }
+  ]
 }
