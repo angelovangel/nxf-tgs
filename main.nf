@@ -104,7 +104,8 @@ process REPORT {
 process HTMLREPORT {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user"
-    publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html'
+    publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
+    publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // used for epi2me-labs to see as report
     
     input:
     tuple val(user), path(fastqpath)
@@ -133,7 +134,7 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-    publishDir "$params.outdir/$user", mode: "copy", pattern: "output/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
+    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
     //publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/*html", saveAs: { filename -> filename.getName }
 
     input:
