@@ -24,6 +24,7 @@ RUN wget -P bin https://github.com/angelovangel/fastkmers/releases/download/v0.1
 RUN install2.r \
     'R.utils' \
     stringr \
+    readr \
     readxl \
     writexl \
     knitr \

@@ -42,6 +42,22 @@ samplesheet_ch = Channel.fromPath(params.samplesheet)
 wf_versions = Channel.from(['wf-clone-validation', 'v1.2.0'], ['wf-amplicon', 'v1.0.4'], ['wf-bacterial-genomes', 'v1.2.0'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
+// takes in csv, checks for duplicate barcodes, unique sample names per user
+// emits *-checked.csv if all ok, exits with error if not
+process VALIDATE_SAMPLESHEET {
+    container 'aangeloo/nxf-tgs:latest'
+
+    input: 
+    path(csv)
+
+    output:
+    path("*-checked.csv")
+
+    script:
+    """
+    validate_samplesheet.R $csv
+    """
+}
 
 process READEXCEL {
     container 'aangeloo/nxf-tgs:latest'
@@ -146,7 +162,7 @@ process ASSEMBLY {
 workflow prep_samplesheet {
     main:
     if (params.samplesheet.endsWith(".csv")) {
-        samplesheet_ch 
+        VALIDATE_SAMPLESHEET(samplesheet_ch) 
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .tap { internal_ch }
@@ -154,15 +170,16 @@ workflow prep_samplesheet {
         .combine(fastq_pass_ch) 
         //| view()
         .set { prepped_samplesheet_ch } 
-    } else {
-        
-        READEXCEL(samplesheet_ch)
+    } else if (params.samplesheet.endsWith(".xlsx")) {
+        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch)) \
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) }
         .combine(fastq_pass_ch)
         .set { prepped_samplesheet_ch } 
+    } else {
+        exit 'Please provide either a .csv or a .xlsx samplesheet'
     }
     // generate sample sheets per user and save as files
     assembly_ch = internal_ch
