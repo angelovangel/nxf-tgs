@@ -23,14 +23,14 @@
           "format": "file-path",
           "fa_icon": "fas fa-vials",
           "mimetype": "csv/xlsx",
-          "description": "Path to samplesheet file (.csv or .xlsx)"
+          "description": "Path to samplesheet file (.csv or .xlsx)",
+          "help_text": "Samplesheet file must contain as a minimum columns 'user', 'sample', 'barcode' in any order. Other columns are allowed."
         },
         "outdir": {
           "type": "string",
           "format": "directory-path",
           "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-          "fa_icon": "fas fa-poll",
-          "default": "output"
+          "fa_icon": "fas fa-poll"
         },
         "pipeline": {
           "type": "string",
@@ -44,18 +44,23 @@
         }
       }
     },
-    "generic_options": {
-      "title": "Generic options",
+    "advanced_options": {
+      "title": "Advanced options",
       "type": "object",
-      "fa_icon": "fas fa-file-import",
+      "fa_icon": "fas fa-sliders-h",
       "description": "Less common options for the pipeline, typically set in a config file.",
-      "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
+      "help_text": "Additional options for the pipeline, usually not needed.",
       "properties": {
+        "assembly_args": {
+          "type": "string",
+          "description": "Assembly options",
+          "help_text": "Additional command-line arguments passed to the assembly wf. Pass these as strings '--param1 value --param2 value'... ",
+          "fa_icon": "fas fa-angle-right"
+        },
         "help": {
           "type": "boolean",
           "description": "Display help text.",
-          "fa_icon": "fas fa-question-circle",
-          "hidden": true
+          "fa_icon": "fas fa-question-circle"
         }
       }
     }
@@ -65,7 +70,7 @@
       "$ref": "#/definitions/input_output_options"
     },
     {
-      "$ref": "#/definitions/generic_options"
+      "$ref": "#/definitions/advanced_options"
     }
   ]
 }

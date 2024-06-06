@@ -2,6 +2,7 @@ params.fastq = "fastq_pass"
 params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
 params.outdir = "${workflow.launchDir}/output"
 params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+params.assembly_args = null
 params.help = ""
 
 if (params.help) {
@@ -39,7 +40,7 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.2.0'], ['wf-amplicon', 'v1.0.4'], ['wf-bacterial-genomes', 'v1.2.0'])
+wf_versions = Channel.from(['wf-clone-validation', 'v1.2.0'], ['wf-amplicon', 'v1.1.0'], ['wf-bacterial-genomes', 'v1.2.0'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
@@ -156,8 +157,14 @@ process ASSEMBLY {
     path "**"
 
     script:
+    def assembly_args = params.assembly_args ?: ''
     """
-    nextflow run epi2me-labs/${params.pipeline} --fastq $fastq_pass --sample_sheet $samplesheet --out_dir '02-assembly' -r $ver
+    nextflow run epi2me-labs/${params.pipeline} \
+        --fastq $fastq_pass \
+        --sample_sheet $samplesheet \
+        --out_dir '02-assembly' \
+        ${assembly_args} \
+        -r $ver
     """
 }
 workflow prep_samplesheet {
