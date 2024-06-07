@@ -103,13 +103,13 @@ process REPORT {
     tuple val(user), path(fastqfiles)
     
     output:
-    path('faster-report*')
+    path('*faster-report.tsv')
     
     script:
     """
     echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > faster-report-${user}.tsv
     #parallel -k faster -ts ::: $fastqfiles >> faster-report-${user}.tsv
-    faster2 -ts $fastqfiles >> faster-report-${user}.tsv
+    faster2 -ts $fastqfiles >> ${user}-faster-report.tsv
     """
 }
 
@@ -117,7 +117,7 @@ process HTMLREPORT {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user"
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
-    publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // used for epi2me-labs to see as report
+    //publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // v5.1.14 of epi2me-labs looks for html reports recursively, so not needed
     
     input:
     tuple val(user), path(fastqpath)
@@ -146,8 +146,17 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-    publishDir "$params.outdir/$user", mode: "copy", pattern: "02-assembly/**{html,txt,fasta,fastq,gbk,bed,json,bam,bai}"
-    publishDir "$params.outdir", mode: "copy", pattern: "02-assembly/*html", saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // used for epi2me-labs to see as report
+    publishDir (
+        "$params.outdir/$user", 
+        mode: "copy", 
+        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bed,json,bam,bai}" //wf html report is handled separately
+        )
+    publishDir ( 
+        "$params.outdir/$user", 
+        mode: "copy", 
+        pattern: "02-assembly/*html", 
+        saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
+        ) 
 
     input:
     tuple val(user), path(samplesheet), path(fastq_pass), val(ver) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
@@ -155,6 +164,7 @@ process ASSEMBLY {
     output:
     //path "output/*report.html"
     path "**"
+    tuple val(user), path(samplesheet), path("02-assembly/*.final.fasta"), emit: mapping_ch
 
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -210,7 +220,7 @@ workflow prep_samplesheet {
 workflow merge_reads {
     //prep_samplesheet()
     prep_samplesheet().prepped_samplesheet_ch \
-    | MERGE_READS
+    | MERGE_READS 
 }
 
 workflow report {
@@ -222,11 +232,11 @@ workflow report {
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
-    report()
+    report()                       //this is first time prep_samplesheet is called
 
-    prep_samplesheet().assembly_ch
+    prep_samplesheet().assembly_ch //this is second time prep_samplesheet is called
     .combine(fastq_pass_ch)
-    .combine(wf_ver.flatten().last()) \
+    .combine(wf_ver.flatten().last())
     //.join(assembly_versions, by: [0,3]) \
     | ASSEMBLY
 }
