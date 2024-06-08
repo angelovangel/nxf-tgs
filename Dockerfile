@@ -21,6 +21,28 @@ RUN wget -P bin https://github.com/angelovangel/faster2/releases/download/v0.3.0
 RUN wget -P bin https://github.com/angelovangel/fastkmers/releases/download/v0.1.3/fastkmers && \
     chmod 755 bin/fastkmers
 
+# samtools
+RUN wget https://github.com/samtools/samtools/releases/download/1.20/samtools-1.20.tar.bz2 && \
+    tar -jxf samtools-1.20.tar.bz2 && \
+    rm samtools-1.20.tar.bz2 && \
+    cd samtools-1.20 && \
+    ./configure --prefix $(pwd) && \
+    make
+
+ENV PATH=${PATH}:/samtools-1.20
+
+# minimap2
+RUN wget https://github.com/lh3/minimap2/releases/download/v2.28/minimap2-2.28_x64-linux.tar.bz2 && \
+    tar -jxf minimap2-2.28_x64-linux.tar.bz2 && \
+    rm minimap2-2.28_x64-linux.tar.bz2 
+    
+ENV PATH=${PATH}:/minimap2-2.28_x64-linux
+
+# perbase
+RUN wget -P bin https://github.com/sstadick/perbase/releases/download/v0.9.0/perbase-linux-amd64 && \
+    mv bin/perbase-linux-amd64 bin/perbase && \
+    chmod 755 bin/perbase
+
 RUN install2.r \
     'R.utils' \
     stringr \

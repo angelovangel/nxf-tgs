@@ -86,7 +86,7 @@ process MERGE_READS {
     tuple val(samplename), val(barcode), val(user), path(mypath)
     
     output: 
-    tuple val(user), path('*.fastq.gz')
+    tuple val(user), path('*.fastq.gz'), emit: merged_fastq_ch
     
     script:
     """
@@ -164,7 +164,7 @@ process ASSEMBLY {
     output:
     //path "output/*report.html"
     path "**"
-    tuple val(user), path(samplesheet), path("02-assembly/*.final.fasta"), emit: mapping_ch
+    tuple val(user), path("02-assembly/*.final.fasta"), emit: fasta_ch
 
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -177,6 +177,33 @@ process ASSEMBLY {
         -r $ver
     """
 }
+
+process MAPPING {
+    container 'aangeloo/nxf-tgs:latest'
+    tag "$user - $sample"
+    publishDir "$params.outdir/$user/03-mapping", mode: 'copy'
+
+    input:
+    tuple val(user), val(sample), path(finalfasta), path(fastq)
+
+    output:
+    path "*.{bam,bai,tsv}"
+
+    script:
+    """
+    minimap2 -ax lr:hq $finalfasta $fastq > mapping.sam
+
+    samtools view -S -b -T $finalfasta mapping.sam | \
+    samtools sort -o ${sample}.bam -
+    samtools index ${sample}.bam
+    rm mapping.sam
+
+    perbase base-depth ${sample}.bam -F 260 > ${sample}.perbase.tsv
+    perpos_freq.sh ${sample}.perbase.tsv > ${sample}.problems.tsv
+    """
+
+}
+
 workflow prep_samplesheet {
     main:
     if (params.samplesheet.endsWith(".csv")) {
@@ -228,6 +255,9 @@ workflow report {
     | MERGE_READS \
     | groupTuple \
     | (REPORT & HTMLREPORT)
+
+    emit:
+    fastq_ch = MERGE_READS.out.merged_fastq_ch
 }
 
 //barcode,alias,approx_size are needed by epi2me/wf
@@ -239,4 +269,17 @@ workflow {
     .combine(wf_ver.flatten().last())
     //.join(assembly_versions, by: [0,3]) \
     | ASSEMBLY
+
+    report.out.fastq_ch
+    .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+    .set { fastq_ch }
+    
+    ASSEMBLY.out.fasta_ch
+    .transpose()
+    .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+    .join(fastq_ch, by:[0,1])
+    .set { mapping_ch }
+
+    MAPPING(mapping_ch)
+
 }
