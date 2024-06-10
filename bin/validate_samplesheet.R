@@ -1,13 +1,17 @@
 #!/usr/bin/env Rscript
 
 # reads csv/tsv and checks if valid
+# checks also existence of fastq_pass/barcodeXX and presence of reads in fastq_pass/barcodeXX
 # writes back *-checked.csv if ok
+
+# arg[1] is csv, arg[2] is path to fastq_pass
 
 arg <- commandArgs(trailingOnly = T)
 
 library(readr)
 library(stringr)
 library(dplyr)
+library(fs)
 
 # valid barcode names
 bc_pattern <- '^barcode[0-9]+$' 
@@ -101,6 +105,23 @@ if (any(num_vector)) {
   )
 }
 
+# check existance of barcode dir
+paths <- fs::path(arg[2], df$barcode)
+
+bc_exists <- fs::dir_exists(paths)
+if (!all(bc_exists)) {
+  warning( names(which(!bc_exists)), ' does not exist', call. = F)
+  df <- df[bc_exists, ]
+}
+
+# check for fastq files in barcode directory
+paths <- fs::path(arg[2], df$barcode)
+m <- mapply(list.files, paths)
+l <- mapply(length, m) > 0
+if (!all(l)) {
+  warning( names(which(!l)), ' has no files')
+  df <- df[l, ]
+}
 
 write_csv(df, file = 'validated-samplesheet.csv')
 

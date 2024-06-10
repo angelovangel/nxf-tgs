@@ -21,7 +21,7 @@ def helpMessage() {
     fastq       : path to raw fastq_pass data
     samplesheet : path to csv or excel with (at least) columns sample, barcode, user
     assembly    : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
-    outdir      : where to save results, default is output
+    outdir      : where to save results, default is 'output'
     """
     .stripIndent(true)
 }
@@ -51,13 +51,14 @@ process VALIDATE_SAMPLESHEET {
 
     input: 
     path(csv)
+    path(fastq_pass)
 
     output:
     path("validated-samplesheet.csv")
 
     script:
     """
-    validate_samplesheet.R $csv
+    validate_samplesheet.R $csv $fastq_pass
     """
 }
 
@@ -207,7 +208,7 @@ process MAPPING {
 workflow prep_samplesheet {
     main:
     if (params.samplesheet.endsWith(".csv")) {
-        VALIDATE_SAMPLESHEET(samplesheet_ch) 
+        VALIDATE_SAMPLESHEET(samplesheet_ch, fastq_pass_ch) 
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .tap { internal_ch }
@@ -216,7 +217,7 @@ workflow prep_samplesheet {
         //| view()
         .set { prepped_samplesheet_ch } 
     } else if (params.samplesheet.endsWith(".xlsx")) {
-        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch)) \
+        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch) \
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .tap { internal_ch }
