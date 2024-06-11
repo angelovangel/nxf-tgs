@@ -1,7 +1,7 @@
 params.fastq = "fastq_pass"
 params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
 params.outdir = "${workflow.launchDir}/output"
-params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
 params.assembly_args = null
 params.help = ""
 
@@ -271,23 +271,23 @@ workflow report {
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
     report()                       //this is first time prep_samplesheet is called
+    if (params.pipeline != 'report-only') {
+        prep_samplesheet().assembly_ch //this is second time prep_samplesheet is called
+        .combine(fastq_pass_ch)
+        .combine(wf_ver.flatten().last())
+        //.join(assembly_versions, by: [0,3]) \
+        | ASSEMBLY
 
-    prep_samplesheet().assembly_ch //this is second time prep_samplesheet is called
-    .combine(fastq_pass_ch)
-    .combine(wf_ver.flatten().last())
-    //.join(assembly_versions, by: [0,3]) \
-    | ASSEMBLY
-
-    report.out.fastq_ch
-    .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
-    .set { fastq_ch }
+        report.out.fastq_ch
+        .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+        .set { fastq_ch }
     
-    ASSEMBLY.out.fasta_ch
-    .transpose()
-    .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
-    .join(fastq_ch, by:[0,1])
-    .set { mapping_ch }
+        ASSEMBLY.out.fasta_ch
+        .transpose()
+        .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+        .join(fastq_ch, by:[0,1])
+        .set { mapping_ch }
 
-    MAPPING(mapping_ch)
-
+        MAPPING(mapping_ch)
+    }
 }

@@ -38,7 +38,8 @@
           "enum": [
             "wf-clone-validation",
             "wf-amplicon",
-            "wf-bacterial-genomes"
+            "wf-bacterial-genomes",
+            "report-only"
           ],
           "default": "wf-clone-validation",
           "fa_icon": "fas fa-server",
