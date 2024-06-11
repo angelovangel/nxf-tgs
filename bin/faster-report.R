@@ -22,6 +22,7 @@ option_list <- list(
   make_option(c('--type', '-t'), help = "seq platform used, can be one of 'illumina', 'ont' or 'pacbio' [%default]", default = 'ont'),
   make_option(c('--rundate', '-d'), help = 'Run date', type = 'character', default = NULL),
   make_option(c('--flowcell', '-f'), help = 'Flow cell ID', type = 'character', default = NULL),
+  make_option(c('--basecall', '-b'), help = 'Basecaller model', type = 'character', default = NULL),
   make_option(c('--user', '-u'), help = 'User', type = 'character', default = NULL),
   make_option(c('--save_raw', '-s'), help = 'save raw csv data used for plotting [%default]', type = 'logical', default = FALSE),
   make_option(c('--subsample', '-x'), help = 'subsample reads for kmers calculation [%default]', type = 'double', default = 1.0),
@@ -50,6 +51,8 @@ print(paste0("fastq path: ", fastqpath))
 # change to match parameter used in Rmd
 if (opts$type == 'illumina') {
   opts$type <- 'Illumina'
+  opts$flowcell <- 'NA'
+  opts$basecall <- 'NA'
 } else if (opts$type == 'ont') {
   opts$type <- 'Nanopore'
 } else if (opts$type == 'pacbio') {
@@ -68,6 +71,7 @@ rmarkdown::render(input = "faster-report.Rmd",
                     sequencer = opts$type,
                     rundate = opts$rundate,
                     flowcell = opts$flowcell,
+                    basecall = opts$basecall,
                     user = opts$user,
                     rawdata = opts$save_raw,
                     subsample = opts$subsample

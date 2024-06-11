@@ -132,6 +132,8 @@ process HTMLREPORT {
     # it is the same for all users
     FLOWCELL=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "flow_cell_id=.*" | cut -d" " -f1 | cut -d= -f2)
     RUNDATE=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "start_time=.*" | cut -d" " -f1 | cut -d= -f2 | cut -dT -f1)
+    BC_MODEL=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "model_version_id=.*" | cut -d" " -f1 | cut -d= -f2 | cut -dT -f1)
+
     if [[ -z "\$FLOWCELL" ]]; then
         FLOWCELL="NA"
     fi
@@ -140,7 +142,12 @@ process HTMLREPORT {
         RUNDATE="NA"
     fi
     
-    faster-report.R -p . --outfile ${user}-faster-report --user ${user} --rundate \$RUNDATE --flowcell \$FLOWCELL
+    faster-report.R -p . \
+        --outfile ${user}-faster-report \
+        --user ${user} \
+        --rundate \$RUNDATE \
+        --flowcell \$FLOWCELL \
+        --basecall \$BC_MODEL
     """
 }
 
