@@ -158,16 +158,16 @@ process ASSEMBLY {
         "$params.outdir/$user", 
         mode: "copy", 
         pattern: "02-assembly/**{txt,fasta,fastq,gbk,bed,json,bam,bai}" //wf html report is handled separately
-        )
+    )
     publishDir ( 
         "$params.outdir/$user", 
         mode: "copy", 
         pattern: "02-assembly/*html", 
         saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
-        ) 
+    ) 
 
     input:
-    tuple val(user), path(samplesheet), path(fastq_pass), val(ver) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass]
+    tuple val(user), path(samplesheet), path(fastq_pass), val(ver) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
     
     output:
     //path "output/*report.html"
@@ -270,7 +270,7 @@ workflow report {
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
-    report()                       //this is first time prep_samplesheet is called
+    report()                            //this is first time prep_samplesheet is called
     if (params.pipeline != 'report-only') {
         prep_samplesheet().assembly_ch //this is second time prep_samplesheet is called
         .combine(fastq_pass_ch)
