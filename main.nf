@@ -196,6 +196,7 @@ process MAPPING {
 
     output:
     path "*.{bam,bai,tsv}"
+    tuple val(user), val(sample), path("*.{bam,bai,problems.tsv}"), emit: bam_ch
 
     script:
     """
@@ -210,6 +211,39 @@ process MAPPING {
     perpos_freq.sh ${sample}.perbase.tsv > ${sample}.problems.tsv
     """
 
+}
+
+process IGV {
+    container 'aangeloo/nxf-tgs:latest'
+    tag "$user - $sample"
+    publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
+    //[user, sample, [bam, bai, problems], fasta]
+    input:
+    tuple val(user), val(sample), path(mapping), path(fasta)
+
+    output:
+    path "*.igvreport.html"
+
+    script:
+    """
+    len=\$(faster2 -l $fasta)
+    header=\$(grep ">" $fasta | cut -c 2-)
+    # dynamic calculation for subsampling, subsample for > 500 alignments
+    count=\$(samtools view -c ${mapping[0]})
+    subsample=\$(echo \$count | awk '{if (\$1 <500) {print 1} else {print 500/\$1}}')
+    
+    # construct bed file
+    echo -e "\$header\t0\t\$len\tsubsampled alignments (\$subsample)" > bedfile.bed
+    awk -v OFS='\t' -v chr=\$header 'NR>1 {print chr, \$1-1, \$1, "HET"}' ${mapping[2]} >> bedfile.bed
+
+    create_report \
+        bedfile.bed \
+        --fasta $fasta \
+        --tracks ${mapping[0]} \
+        --output ${sample}.igvreport.html \
+        --flanking 200 \
+        --subsample \$subsample
+    """
 }
 
 workflow prep_samplesheet {
@@ -289,5 +323,11 @@ workflow {
         .set { mapping_ch }
 
         MAPPING(mapping_ch)
+        
+        MAPPING.out.bam_ch
+        //.map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+        .join( mapping_ch, by: [0,1] )
+        .map{ it -> it[0..3] }
+        | IGV
     }
 }

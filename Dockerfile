@@ -5,7 +5,7 @@ LABEL author="Angel Angelov <aangeloo@gmail.com>"
 LABEL description="Docker image for the NXF-TGS pipeline (merge-rename, faster report, ont wf assemblies)"
 
 RUN apt-get update && apt-get install -y \
-    pandoc nano ksh procps libxt-dev libssl-dev libxml2-dev libfontconfig1-dev parallel
+    pandoc nano ksh procps libxt-dev libssl-dev libxml2-dev libfontconfig1-dev parallel python3-pip
 # libxt-dev is required to solve the segfault error caused by cairoVersion() in R
 
 # RUN curl -s https://get.nextflow.io | bash && chmod +x nextflow && mv nextflow /usr/local/bin/
@@ -42,6 +42,9 @@ ENV PATH=${PATH}:/minimap2-2.28_x64-linux
 RUN wget -P bin https://github.com/sstadick/perbase/releases/download/v0.9.0/perbase-linux-amd64 && \
     mv bin/perbase-linux-amd64 bin/perbase && \
     chmod 755 bin/perbase
+
+# igv-reports
+RUN pip install igv-reports
 
 RUN install2.r \
     'R.utils' \
