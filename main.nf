@@ -29,7 +29,7 @@ def helpMessage() {
 log.info """\
     ===================================
     NXF - TGS ONT PIPELINE
-    process (per user) raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
+    process (per user) raw fastq_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
     ===================================
     fastq       : ${params.fastq}
     samplesheet : ${params.samplesheet}
@@ -157,7 +157,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bed,json,bam,bai}" //wf html report is handled separately
+        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bed}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -325,9 +325,8 @@ workflow {
         MAPPING(mapping_ch)
         
         MAPPING.out.bam_ch
-        //.map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
         .join( mapping_ch, by: [0,1] )
-        .map{ it -> it[0..3] }
+        .map{ it -> it[0..3] } 
         | IGV
     }
 }

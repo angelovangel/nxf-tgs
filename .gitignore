@@ -9,3 +9,4 @@ testdata*
 .Rhistory
 .vscode
 mapping.nf
+wf-demo*
