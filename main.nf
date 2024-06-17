@@ -1,9 +1,3 @@
-params.fastq = "fastq_pass"
-params.samplesheet = "samplesheet.csv" //user, sample, barcode NEEDED
-params.outdir = "${workflow.launchDir}/output"
-params.pipeline = "wf-clone-validation" //can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
-params.assembly_args = null
-params.help = ""
 
 if (params.help) {
     helpMessage()
