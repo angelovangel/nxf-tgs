@@ -147,11 +147,12 @@ process HTMLREPORT {
 
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
+    errorStrategy 'ignore'
     tag "$user"
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bed}" //wf html report is handled separately
+        pattern: "02-assembly/**{txt,fasta,fastq,gbk,annotations.bed}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -159,14 +160,14 @@ process ASSEMBLY {
         pattern: "02-assembly/*html", 
         saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
     ) 
-
+    // [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
     input:
-    tuple val(user), path(samplesheet), path(fastq_pass), val(ver) // input is [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
+    tuple val(user), path(samplesheet), path(fastq_pass), val(ver)
     
     output:
     //path "output/*report.html"
     path "**"
-    tuple val(user), path("02-assembly/*.final.fasta"), emit: fasta_ch
+    tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), emit: fasta_ch
 
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -177,6 +178,11 @@ process ASSEMBLY {
         --out_dir '02-assembly' \
         ${assembly_args} \
         -r $ver
+    # fix annotations.bed
+    feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
+    if [[ \$feature_counts -ne 0 ]]; then
+        cd 02-assembly && make_bed.R feature_table.txt
+    fi
     """
 }
 
@@ -185,6 +191,7 @@ process MAPPING {
     tag "$user - $sample"
     publishDir "$params.outdir/$user/03-mapping", mode: 'copy'
 
+    //[user, sample, [final.fasta, annotations.bed], fastq.gz]
     input:
     tuple val(user), val(sample), path(finalfasta), path(fastq)
 
@@ -194,9 +201,9 @@ process MAPPING {
 
     script:
     """
-    minimap2 -ax lr:hq $finalfasta $fastq > mapping.sam
+    minimap2 -ax lr:hq ${finalfasta[0]} $fastq > mapping.sam
 
-    samtools view -S -b -T $finalfasta mapping.sam | \
+    samtools view -S -b -T ${finalfasta[0]} mapping.sam | \
     samtools sort -o ${sample}.bam -
     samtools index ${sample}.bam
     rm mapping.sam
@@ -211,7 +218,7 @@ process IGV {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
-    //[user, sample, [bam, bai, problems], fasta]
+    //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
     input:
     tuple val(user), val(sample), path(mapping), path(fasta)
 
@@ -220,8 +227,8 @@ process IGV {
 
     script:
     """
-    len=\$(faster2 -l $fasta)
-    header=\$(grep ">" $fasta | cut -c 2-)
+    len=\$(faster2 -l ${fasta[0]})
+    header=\$(grep ">" ${fasta[0]} | cut -c 2-)
     # dynamic calculation for subsampling, subsample for > 500 alignments
     count=\$(samtools view -c ${mapping[0]})
     subsample=\$(echo \$count | awk '{if (\$1 <500) {print 1} else {print 500/\$1}}')
@@ -232,8 +239,9 @@ process IGV {
 
     create_report \
         bedfile.bed \
-        --fasta $fasta \
-        --tracks ${mapping[0]} \
+        --fasta ${fasta[0]} \
+        --tracks ${fasta[1]} \
+        ${mapping[0]} \
         --output ${sample}.igvreport.html \
         --flanking 200 \
         --subsample \$subsample
@@ -312,8 +320,9 @@ workflow {
     
         ASSEMBLY.out.fasta_ch
         .transpose()
-        .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
+        .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1..2] ] }
         .join(fastq_ch, by:[0,1])
+        //.view()
         .set { mapping_ch }
 
         MAPPING(mapping_ch)
@@ -321,6 +330,8 @@ workflow {
         MAPPING.out.bam_ch
         .join( mapping_ch, by: [0,1] )
         .map{ it -> it[0..3] } 
+        //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
+        //.view()
         | IGV
     }
 }
