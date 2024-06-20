@@ -6,29 +6,31 @@ if (params.help) {
 
 def helpMessage() {
     log.info """\
-    ===================================
+    ========================================================================================================================
     NXF - TGS ONT PIPELINE
     process (per user) raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
-    ===================================
+    ========================================================================================================================
     Usage:
     -----------------------------------
-    fastq       : path to raw fastq_pass data
-    samplesheet : path to csv or excel with (at least) columns sample, barcode, user
-    assembly    : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
-    outdir      : where to save results, default is 'output'
+    fastq         : path to raw fastq_pass data
+    samplesheet   : path to csv or excel with (at least) columns sample, barcode, user
+    pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+    assembly_args : additional command-line arguments passed to the assembly workflow
+    outdir        : where to save results, default is 'output'
     """
     .stripIndent(true)
 }
 
 log.info """\
-    ===================================
+    ========================================================================================================================
     NXF - TGS ONT PIPELINE
     process (per user) raw fastq_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
-    ===================================
-    fastq       : ${params.fastq}
-    samplesheet : ${params.samplesheet}
-    assembly    : ${params.pipeline}
-    outdir      : ${params.outdir}
+    ========================================================================================================================
+    fastq           : ${params.fastq}
+    samplesheet     : ${params.samplesheet}
+    pipeline        : ${params.pipeline}
+    assembly_args   : ${params.assembly_args}
+    outdir          : ${params.outdir}
     """
     .stripIndent(true)
 
@@ -147,7 +149,6 @@ process HTMLREPORT {
 
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
-    errorStrategy 'ignore'
     tag "$user"
     publishDir (
         "$params.outdir/$user", 
@@ -167,7 +168,7 @@ process ASSEMBLY {
     output:
     //path "output/*report.html"
     path "**"
-    tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), emit: fasta_ch
+    tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
 
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -180,9 +181,7 @@ process ASSEMBLY {
         -r $ver
     # fix annotations.bed
     feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
-    if [[ \$feature_counts -ne 0 ]]; then
-        cd 02-assembly && make_bed.R feature_table.txt
-    fi
+    cd 02-assembly && make_bed.R feature_table.txt
     """
 }
 
@@ -302,13 +301,14 @@ workflow report {
 
     emit:
     fastq_ch = MERGE_READS.out.merged_fastq_ch
+    new_assembly_ch = prep_samplesheet.out.assembly_ch
 }
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
-    report()                            //this is first time prep_samplesheet is called
+    report() 
     if (params.pipeline != 'report-only') {
-        prep_samplesheet().assembly_ch //this is second time prep_samplesheet is called
+        report.out.new_assembly_ch
         .combine(fastq_pass_ch)
         .combine(wf_ver.flatten().last())
         //.join(assembly_versions, by: [0,3]) \

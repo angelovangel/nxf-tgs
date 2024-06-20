@@ -21,6 +21,9 @@ df <- read_delim(arg[1], delim = ',') %>%
   mutate(Identity = as.numeric(str_replace(Identity, '%', ''))) %>%
   mutate(Strand = if_else(Strand == 1, "+", "-")) %>%
   dplyr::select(Sample_name, `Start Location`, `End Location`, Feature, Identity, Strand, `Plasmid length`)
+if (nrow(df) < 2) {
+  quit(status = 0)
+}
 
 df1 <- df %>%
   filter(`Start Location` < `End Location`)
@@ -36,7 +39,7 @@ finaldf <- bind_rows(df1, df2a, df2b) %>% select(-`Plasmid length`)
 
 # check all is ok
 if(nrow(finaldf %>% filter(`Start Location` > `End Location`)) != 0) {
-  quit('Start location should be < End location')
+  quit(status = 0)
 }
 
 # save bed files
