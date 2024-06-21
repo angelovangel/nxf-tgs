@@ -87,7 +87,10 @@ process MERGE_READS {
     
     script:
     """
-    cat ${mypath}/${barcode}/*.fastq.gz > ${samplename}.fastq.gz
+    shopt -s extglob
+
+    find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
+    cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${samplename}.fastq.gz
     """
 }
 
