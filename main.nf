@@ -87,6 +87,7 @@ process MERGE_READS {
     
     script:
     """
+    #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
     shopt -s extglob
 
     find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
@@ -255,7 +256,8 @@ workflow prep_samplesheet {
     if (params.samplesheet.endsWith(".csv")) {
         VALIDATE_SAMPLESHEET(samplesheet_ch, fastq_pass_ch) 
         .splitCsv(header: true)
-        .filter{it -> it.barcode =~ /^barcode*/}
+        .filter{ it -> it.barcode =~ /^barcode*/ }
+        .filter{it -> it.validate_samplesheet =~ /OK/ }
         .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) } 
         .combine(fastq_pass_ch) 
@@ -265,6 +267,7 @@ workflow prep_samplesheet {
         VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch) \
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
+        .filter{it -> it.validate_samplesheet =~ /OK/ }
         .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) }
         .combine(fastq_pass_ch)

@@ -22,7 +22,8 @@ print_and_capture <- function(x)
   paste(capture.output(print(x)), collapse = "\n")
 }
 
-df <- readr::read_delim(arg[1], col_names = T, trim_ws = T)
+df <- readr::read_delim(arg[1], col_names = T, trim_ws = T) %>% 
+  mutate(validate_samplesheet = 'OK')
 
 
 # CHECKS #####################################################
@@ -105,14 +106,6 @@ if (any(num_vector)) {
   )
 }
 
-# check existance of barcode dir
-paths <- fs::path(arg[2], df$barcode)
-
-bc_exists <- fs::dir_exists(paths)
-if (!all(bc_exists)) {
-  warning( names(which(!bc_exists)), ' does not exist', call. = F)
-  df <- df[bc_exists, ]
-}
 
 # check for fastq files in barcode directory
 paths <- fs::path(arg[2], df$barcode)
@@ -120,7 +113,18 @@ m <- mapply(list.files, paths)
 l <- mapply(length, m) > 0
 if (!all(l)) {
   warning( names(which(!l)), ' has no files')
-  df <- df[l, ]
+  #df <- df[l, ]
+  df$validate_samplesheet[!l] <- 'no fastq files'
+}
+
+# check existance of barcode dir
+paths <- fs::path(arg[2], df$barcode)
+
+bc_exists <- fs::dir_exists(paths)
+if (!all(bc_exists)) {
+  warning( names(which(!bc_exists)), ' does not exist', call. = F)
+  #df <- df[bc_exists, ]
+  df$validate_samplesheet[!bc_exists] <- 'bc does not exist'
 }
 
 write_csv(df, file = 'validated-samplesheet.csv')
