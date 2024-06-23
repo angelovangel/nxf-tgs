@@ -14,7 +14,7 @@ def helpMessage() {
     -----------------------------------
     fastq         : path to raw fastq_pass data
     samplesheet   : path to csv or excel with (at least) columns sample, barcode, user
-    pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon
+    pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args : additional command-line arguments passed to the assembly workflow
     outdir        : where to save results, default is 'output'
     """
@@ -142,6 +142,10 @@ process HTMLREPORT {
         RUNDATE="NA"
     fi
     
+    if [[ -z "\$BC_MODEL" ]]; then
+        BC_MODEL="NA"
+    fi
+
     faster-report.R -p . \
         --outfile ${user}-faster-report \
         --user ${user} \
@@ -184,8 +188,10 @@ process ASSEMBLY {
         ${assembly_args} \
         -r $ver
     # fix annotations.bed
-    feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
-    cd 02-assembly && make_bed.R feature_table.txt
+    if [ ${params.pipeline} = 'wf-clone-validation' ]; then
+        feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
+        cd 02-assembly && make_bed.R feature_table.txt
+    fi
     """
 }
 
