@@ -108,8 +108,8 @@ process REPORT {
     
     script:
     """
-    echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > faster-report-${user}.tsv
-    #parallel -k faster -ts ::: $fastqfiles >> faster-report-${user}.tsv
+    echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > ${user}-faster-report.tsv
+    #parallel -k faster -ts ::: $fastqfiles >> ${user}-faster-report.tsv
     faster2 -ts $fastqfiles >> ${user}-faster-report.tsv
     """
 }
