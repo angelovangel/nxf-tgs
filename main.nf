@@ -16,7 +16,7 @@ def helpMessage() {
     samplesheet   : path to csv or excel with (at least) columns sample, barcode, user
     pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args : additional command-line arguments passed to the assembly workflow
-    outdir        : where to save results, default is 'output'
+    outdir        : where to save results, default is 'results'
     """
     .stripIndent(true)
 }
@@ -161,7 +161,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{txt,fasta,fastq,gbk,annotations.bed}" //wf html report is handled separately
+        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bam,bai,annotations.bed}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -176,6 +176,7 @@ process ASSEMBLY {
     output:
     //path "output/*report.html"
     path "**"
+    // this is not output by wf-amplicon and bacterial genome, so no mapping and IGV report there
     tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
 
     script:
