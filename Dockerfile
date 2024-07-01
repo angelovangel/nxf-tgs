@@ -5,7 +5,7 @@ LABEL author="Angel Angelov <aangeloo@gmail.com>"
 LABEL description="Docker image for the NXF-TGS pipeline (merge-rename, faster report, ont wf assemblies)"
 
 RUN apt-get update && apt-get install -y \
-    pandoc nano ksh procps libxt-dev libssl-dev libxml2-dev libfontconfig1-dev parallel python3-pip pigz
+    pandoc nano ksh procps libxt-dev libssl-dev libxml2-dev libfontconfig1-dev parallel python3-pip pigz ed
 # libxt-dev is required to solve the segfault error caused by cairoVersion() in R
 
 # RUN curl -s https://get.nextflow.io | bash && chmod +x nextflow && mv nextflow /usr/local/bin/

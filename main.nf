@@ -188,7 +188,7 @@ process ASSEMBLY {
         --out_dir '02-assembly' \
         ${assembly_args} \
         -r $ver
-    # fix annotations.bed
+    # fix annotations.bed, for make_bed.R to work the R libraries readr, dplyr and stringr have to be available to the user
     if [ ${params.pipeline} = 'wf-clone-validation' ]; then
         feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
         cd 02-assembly && make_bed.R feature_table.txt
@@ -218,7 +218,7 @@ process MAPPING {
     samtools index ${sample}.bam
     rm mapping.sam
 
-    perbase base-depth ${sample}.bam -F 260 > ${sample}.perbase.tsv
+    perbase base-depth --threads 4 ${sample}.bam -F 260 > ${sample}.perbase.tsv
     perpos_freq.sh ${sample}.perbase.tsv > ${sample}.problems.tsv
     """
 
@@ -250,8 +250,7 @@ process IGV {
     create_report \
         bedfile.bed \
         --fasta ${fasta[0]} \
-        --tracks ${fasta[1]} \
-        ${mapping[0]} \
+        --tracks ${fasta[1]} ${mapping[0]} \
         --output ${sample}.igvreport.html \
         --flanking 200 \
         --subsample \$subsample
