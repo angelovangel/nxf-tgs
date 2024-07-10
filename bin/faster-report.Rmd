@@ -54,16 +54,15 @@ params:
    value: 1
 ---
 
-Generated at `r params$author` on `r format.Date(Sys.time())`.
+Generated at `r params$author` on `r format.Date(Sys.time())`. All data is calculated with the [faster](https://github.com/angelovangel/faster) and [fastkmers](https://github.com/angelovangel/fastkmers) programs.    
+
+***
 
 Run date: <span class="badge"> `r params$rundate` </span>    
 Platform: <span class="badge"> `r params$sequencer` </span>    
 Flow cell: <span class="badge"> `r params$flowcell` </span>  
 Basecall: <span class="badge"> [`r params$basecall`](https://github.com/nanoporetech/dorado?tab=readme-ov-file#decoding-dorado-model-names) </span>  
 User: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="badge"> `r params$user` </span>    
-
-    
-All fastq data is calculated with the [faster](https://github.com/angelovangel/faster) and [fastkmers](https://github.com/angelovangel/fastkmers) programs.
 
 
 ```{r setup, include=FALSE}
@@ -257,7 +256,13 @@ spark_phred <- function(phred_density_obj) {
 	spk_chr(round(phred_density_obj$y, digits = 2), 
 					type = "bar",
 					 # to highlight q-value of 30, only array (60 elements) seems to work, don't know how to pass range map here
-					colorMap = c(rep(fillcolor, 19), "red", rep(fillcolor, 9), "red", rep(fillcolor, 19), "red", rep(fillcolor, 19)),
+					colorMap = c(
+					  rep(fillcolor, 9), "red", 
+					  rep(fillcolor, 9), "red", 
+					  rep(fillcolor, 9), "red", 
+					  rep(fillcolor, 9), "red", 
+					  rep(fillcolor, 19)
+					  ),
 					width = 140, height = 40,
 					tooltipFormatter = spk_tool("qscore ",phred_density_obj$x, round(phred_density_obj$y, 2))
 					)
