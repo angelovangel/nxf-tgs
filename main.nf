@@ -36,7 +36,7 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.2.0'], ['wf-amplicon', 'v1.1.0'], ['wf-bacterial-genomes', 'v1.2.0'])
+wf_versions = Channel.from(['wf-clone-validation', 'v1.5.0'], ['wf-amplicon', 'v1.1.0'], ['wf-bacterial-genomes', 'v1.2.0'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
