@@ -50,8 +50,10 @@ faster_len <- function(x, saveraw = FALSE) {
   
   density_obj <- system2("faster2", args = c("--len", x), stdout = TRUE) %>%
     as.numeric() %>%
-    log10() %>%
-    density(from = 2, to = 5, n = 100, na.rm = TRUE)
+    hist(breaks = seq(1, 50000, length.out = 51), plot = FALSE) # x = breaks or mids, y = counts
+    #log10() %>%
+    #density(from = 100, to = 60000, n = 60, na.rm = TRUE)
+    #density(from = 200, to = 50000, n = 100, na.rm = TRUE)
   if(isTRUE(saveraw)) {
     #if(!dir.exists("rawdata")) {dir.create("rawdata")}
     data.table::fwrite(data.frame(x = density_obj$x, y = density_obj$y), 

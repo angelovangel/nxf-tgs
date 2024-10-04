@@ -60,8 +60,8 @@
       "properties": {
         "assembly_args": {
           "type": "string",
-          "description": "Assembly options",
-          "help_text": "Additional command-line arguments passed to the assembly wf. Pass these as strings '--param1 value --param2 value'... ",
+          "description": "Additional assembly arguments",
+          "help_text": "Additional command-line arguments passed to the assembly workflow. Pass these as strings '--param1 value --param2 value'... ",
           "fa_icon": "fas fa-angle-right"
         },
         "help": {

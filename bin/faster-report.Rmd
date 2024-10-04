@@ -309,19 +309,22 @@ log_formatter <- htmlwidgets::JS(sprintf("function(x){ return Math.round(Math.po
 # in order to be able to compare across vastly different lengths, use special scale
 spark_len <- function(len_density_obj) {
   spk_chr(
-    paste(len_density_obj$x, ":", len_density_obj$y, sep = ""),
-    #type = "bar",
-    lineWidth = 3,
-    fillColor = "#D0D3D4",
-    lineColor = "#5D6D7E",
-    spotColor = FALSE,
-    minSpotColor = FALSE,
-    maxSpotColor = "red",
-    spotRadius = 3,
+    #paste(len_density_obj$mids, ":", len_density_obj$counts, sep = ""),
+    len_density_obj$counts,
+    type = "bar",
+    barColor = "#5D6D7E",
+    #lineWidth = 3,
+    #fillColor = "#D0D3D4",
+    #lineColor = "#5D6D7E",
+    #spotColor = FALSE,
+    #minSpotColor = FALSE,
+    #maxSpotColor = "red",
+    #spotRadius = 3,
     width = 260,
     height = 40,
-    tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}length: {{x}} {{suffix}}</span>",
-    numberFormatter = log_formatter
+    tooltipFormatter = spk_tool("length: ", round(len_density_obj$mids, 0), len_density_obj$counts)
+    #tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}length: {{x}} {{suffix}}</span>"
+    #numberFormatter = log_formatter
   )
 }
 
@@ -494,7 +497,7 @@ if (params$sequencer != "Illumina") {
 	file = basename(fastqfiles),
 	gc_content_dist = sapply(gc_density, spark_gc),
 	q_score_dist = sapply(q_score_density, spark_phred),
-	len_dist = sapply(len_density, spark_len),
+	len_hist = sapply(len_density, spark_len),
 	kmer_counts = sapply(kmers_tbl_list, spark_kmers), 
 	row.names = NULL
   )
