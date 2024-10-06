@@ -48,15 +48,16 @@ faster_len <- function(x, saveraw = FALSE) {
   require(data.table)
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   
-  density_obj <- system2("faster2", args = c("--len", x), stdout = TRUE) %>%
-    as.numeric() %>%
-    hist(breaks = seq(1, 50000, length.out = 51), plot = FALSE) # x = breaks or mids, y = counts
+  lens <- system2("faster2", args = c("--len", x), stdout = TRUE)
+    
+  density_obj <- as.numeric(lens)[lens > 1 & lens < 50000] %>%
+    hist(breaks = seq(1, 50000, length.out = 61), plot = FALSE) # x = breaks or mids, y = counts
     #log10() %>%
     #density(from = 100, to = 60000, n = 60, na.rm = TRUE)
     #density(from = 200, to = 50000, n = 100, na.rm = TRUE)
   if(isTRUE(saveraw)) {
     #if(!dir.exists("rawdata")) {dir.create("rawdata")}
-    data.table::fwrite(data.frame(x = density_obj$x, y = density_obj$y), 
+    data.table::fwrite(data.frame(x = density_obj$mids, y = density_obj$counts), 
                        file = paste0("rawdata/", "faster_len", "-", samplename, ".tsv"), 
                        sep = "\t")
   }
