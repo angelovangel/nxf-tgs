@@ -516,7 +516,7 @@ if (params$sequencer != "Illumina") {
 
 table2_caption <- ifelse(
   params$sequencer != "Illumina",
-  "Density distributions of GC-content, 'mean' q-score, length and k-mer counts (k = 3). The q-scores 10, 20, 30, 40 are in red",
+  "Density distributions of GC-content, 'mean' q-score, length and k-mer counts (k = 3). The q-scores 10, 20, 30, 40 are in red. Lengths > 50 kb are binned to 50 kb.",
   "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts (k = 3). The q-scores 20 and 30 are in red."
 )
 gc_df %>%

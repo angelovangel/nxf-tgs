@@ -48,9 +48,10 @@ faster_len <- function(x, saveraw = FALSE) {
   require(data.table)
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   
-  lens <- system2("faster2", args = c("--len", x), stdout = TRUE)
+  lens <- system2("faster2", args = c("--len", x), stdout = TRUE) %>% as.numeric()
+  lens[lens >= 50000] <- 50000 # all bigger than 50k are set to 50k
     
-  density_obj <- as.numeric(lens)[lens > 1 & lens < 50000] %>%
+  density_obj <- lens[lens > 1 & lens <= 50000] %>%
     hist(breaks = seq(1, 50000, length.out = 61), plot = FALSE) # x = breaks or mids, y = counts
     #log10() %>%
     #density(from = 100, to = 60000, n = 60, na.rm = TRUE)
