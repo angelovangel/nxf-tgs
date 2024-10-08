@@ -1,4 +1,5 @@
 # NXF - TGS Oxford Nanopore pipeline
+Process raw Oxford Nanopore data, generate html report, and do de novo assembly (plasmid, amplicon, bacterial genome)
 
 ## About
 Nextflow pipeline for processing raw Oxford Nanopore run data - merge/rename files, generate read reports, run ONT workflows 
