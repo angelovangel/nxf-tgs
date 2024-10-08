@@ -1,11 +1,11 @@
-## NXF - TGS Oxford Nanopore pipeline
+# NXF - TGS Oxford Nanopore pipeline
 
-### About
+## About
 Nextflow pipeline for processing raw Oxford Nanopore run data - merge/rename files, generate read reports, run ONT workflows 
 (wf-clone-validation, wf-bacterial-genomes or wf-amplicon). Raw reads are mapped back to the assemblies and the alignments are visualised in IGV html reports.
 
 
-### Running
+## Running
 
 Only `nextflow` and `docker` are required. The required inputs for the pipeline are:
 - path to samplesheet - path to a csv or excel file with columns `sample`, `barcode` and `user`. Other columns can also be there.
@@ -27,3 +27,7 @@ It is possible to run only `merge_reads` or `merge_reads` + `report`. For this, 
 nextflow run angelovangel/nxf-tgs --samplesheet path/to/samplesheet.csv --fastq path/to/fastq_pass -entry report
 ```
 This will run `merge_reads` + `report` and no asembly and mapping...
+
+## Run in EPI2ME
+
+You can import and run the pipeline using GUI in [EPI2ME](https://labs.epi2me.io/downloads/). There is also a test dataset to try if all works - after importing select 'Options' --> 'Run demo analysis'. 

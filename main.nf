@@ -16,7 +16,7 @@ def helpMessage() {
     samplesheet   : path to csv or excel with (at least) columns sample, barcode, user
     pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args : additional command-line arguments passed to the assembly workflow
-    outdir        : where to save results, default is 'results'
+    outdir        : where to save results, default is 'output'
     """
     .stripIndent(true)
 }
@@ -110,7 +110,7 @@ process REPORT {
     """
     echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > ${user}-faster-report.tsv
     #parallel -k faster -ts ::: $fastqfiles >> ${user}-faster-report.tsv
-    faster2 -ts $fastqfiles >> ${user}-faster-report.tsv
+    faster2 -ts $fastqfiles >> 00-${user}-faster-report.tsv
     """
 }
 
@@ -147,7 +147,7 @@ process HTMLREPORT {
     fi
 
     faster-report.R -p . \
-        --outfile ${user}-faster-report \
+        --outfile 00-${user}-faster-report \
         --user ${user} \
         --rundate \$RUNDATE \
         --flowcell \$FLOWCELL \
@@ -167,7 +167,7 @@ process ASSEMBLY {
         "$params.outdir/$user", 
         mode: "copy", 
         pattern: "02-assembly/*html", 
-        saveAs: { fn -> "${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
+        saveAs: { fn -> "00-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
     ) 
     // [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
     input:
