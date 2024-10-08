@@ -322,7 +322,11 @@ spark_len <- function(len_density_obj) {
     #spotRadius = 3,
     width = 260,
     height = 40,
-    tooltipFormatter = spk_tool("length: ", round(len_density_obj$mids, 0), len_density_obj$counts)
+    tooltipFormatter = spk_tool(
+      "reads with len from ", 
+      paste0(round(len_density_obj$breaks, 0), ' to ', round(len_density_obj$breaks + 832, 0)), 
+      len_density_obj$counts
+    )
     #tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}length: {{x}} {{suffix}}</span>"
     #numberFormatter = log_formatter
   )
