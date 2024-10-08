@@ -4,7 +4,7 @@
   "title": "angelovangel/nxf-tgs pipeline",
   "workflow_title": "NXF-TGS workflow",
   "description": "Process raw ONT data, generate html reports, and do assembly (plasmid, amplicon, bacterial genome)",
-  "demo_url": "https://github.com/angelovangel/nxf-tgs/releases/download/v0.1.4/nxf-tgs-demo.tar.gz",
+  "demo_url": "https://github.com/angelovangel/nxf-tgs/releases/download/v0.1.5/nxf-tgs-demo.tar.gz",
   "url": "https://github.com/angelovangel/nxf-tgs",
   "type": "object",
   "definitions": {
