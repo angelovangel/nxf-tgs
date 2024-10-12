@@ -62,8 +62,20 @@ if (any(dups_vector)) {
   )
 }
 
-# valid barcode names
+### valid barcode names
 
+# max len of sample name is 24 - perbase weird crash 
+sl_vector <- str_length(df$sample)
+if (!all(sl_vector <= 24)) {
+  stop(paste0(
+   '\nSamples with too long names:',
+   '\n--------------------------------------\n',
+   print_and_capture( df[sl_vector > 24, ] ),
+   '\n--------------------------------------\n',
+   'Sample names have to be < 25 characters long',
+   '\n--------------------------------------\n'
+  ))
+}
 
 # special characters in sample names
 sn_vector <- str_detect(df$sample, '^[a-zA-Z0-9\\_\\-]+$')
@@ -127,5 +139,5 @@ if (!all(bc_exists)) {
   df$validate_samplesheet[!bc_exists] <- 'bc does not exist'
 }
 
-write_csv(df, file = 'validated-samplesheet.csv')
+write_csv(df, file = 'samplesheet-validated.csv')
 

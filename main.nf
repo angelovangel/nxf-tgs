@@ -43,14 +43,14 @@ wf_ver = Channel.from(params.pipeline).join(wf_versions)
 // emits *-checked.csv if all ok, exits with error if not
 process VALIDATE_SAMPLESHEET {
     container 'aangeloo/nxf-tgs:latest'
-    publishDir "$params.outdir", mode: 'copy', pattern: 'validated-samplesheet.csv'
+    publishDir "$params.outdir", mode: 'copy', pattern: 'samplesheet-validated.csv'
 
     input: 
     path(csv)
     path(fastq_pass)
 
     output:
-    path("validated-samplesheet.csv")
+    path("samplesheet-validated.csv")
 
     script:
     """
