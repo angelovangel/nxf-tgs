@@ -89,12 +89,12 @@ duplevel <- function(x, saveraw = FALSE) {
   
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   #faster -l x | sort -n | head -n 1
-  faster_out <- system2("faster", args = c("-t", x), stdout = TRUE)
+  faster_out <- system2("faster2", args = c("-t", x), stdout = TRUE)
   max_len <- read.table(text = faster_out, header = T)$max_len
   if (max_len > 610) {
     stop(paste("max read length is", max_len, "and you selected Illumina, which can be maximum 610"))
   }
-  fastkmers_out <- system2("fastkmers", args = c("-k", as.numeric(max_len), "-v", "-f", x), stdout = T)
+  fastkmers_out <- system2("fastkmers", args = c("-k", as.numeric(max_len - 1), "-v", "-f", x), stdout = T)
   duplevel_tbl <- read.table(text = fastkmers_out, sep = "\t", header = T) %>%
     dplyr::arrange(occ) %>%
     dplyr::mutate(percent = round(count/sum(count), 4)*100) %>%
@@ -115,7 +115,7 @@ content_percycle <- function(x, saveraw = FALSE) {
   
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   
-  faster_out <- system2("faster", args = c("-t", x), stdout = TRUE)
+  faster_out <- system2("faster2", args = c("-t", x), stdout = TRUE)
   max_len <- read.table(text = faster_out, header = T)$max_len
   if (max_len > 610) {
     stop(paste("max read length is", max_len, "and you selected Illumina, which can be maximum 610"))

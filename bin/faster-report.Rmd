@@ -310,7 +310,7 @@ log_formatter <- htmlwidgets::JS(sprintf("function(x){ return Math.round(Math.po
 spark_len <- function(len_density_obj) {
   spk_chr(
     #paste(len_density_obj$mids, ":", len_density_obj$counts, sep = ""),
-    len_density_obj$counts,
+    len_density_obj$counts * len_density_obj$mids,
     type = "bar",
     barColor = "#5D6D7E",
     #lineWidth = 3,
@@ -323,9 +323,11 @@ spark_len <- function(len_density_obj) {
     width = 260,
     height = 40,
     tooltipFormatter = spk_tool(
-      "reads with len from ", 
-      paste0(round(len_density_obj$breaks, 0), ' to ', round(len_density_obj$breaks + 832, 0)), 
-      len_density_obj$counts
+      "base yield for length ", 
+      paste0(round(len_density_obj$breaks, 0), ' to ', round(len_density_obj$breaks + 832, 0)),
+      prettyNum(
+        round(len_density_obj$counts * len_density_obj$mids, 0), big.mark = ","
+      )
     )
     #tooltipFormat = "<span style='color: {{color}}'>&#9679;</span> {{prefix}}length: {{x}} {{suffix}}</span>"
     #numberFormatter = log_formatter
