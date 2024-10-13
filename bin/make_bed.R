@@ -26,8 +26,9 @@ df$Strand <- replace(df$Strand, df$Strand == -1, "-")
 # select only required columns
 df <- df[c('Sample_name', 'Start Location', 'End Location', 'Feature', 'Identity', 'Strand', 'Plasmid length')]
   #dplyr::select(Sample_name, `Start Location`, `End Location`, Feature, Identity, Strand, `Plasmid length`)
-if (nrow(df) < 2) {
-  quit(status = 0)
+if (nrow(df) < 1) {
+  #quit(status = 0)
+  stop('No features in feature_table.txt')
 }
 
 # actual fix of features spanning origin
@@ -36,15 +37,18 @@ df1 <- df[df$`Start Location` < df$`End Location`, ]
 df2 <- df[df$`Start Location` > df$`End Location`, ]
 df2a <- df2
 df2b <- df2
-df2a$`Start Location` <- 1
-df2b$`End Location` <- df2$`Plasmid length`
+if(nrow(df2) > 0) {
+  df2a$`Start Location` <- 1
+  df2b$`End Location` <- df2$`Plasmid length`  
+}
+
 
 finaldf <- rbind(df1, df2a, df2b)
 finaldf <- subset(finaldf, select = -c(`Plasmid length`))
 
 # check all is ok
 if(nrow(finaldf[finaldf$`Start Location` > finaldf$`End Location`, ]) != 0) {
-  quit(status = 0)
+  stop('Check the feature_table.txt file!')
 }
 
 # save bed files

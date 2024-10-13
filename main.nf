@@ -158,6 +158,7 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
+    errorStrategy 'ignore'
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
@@ -227,6 +228,7 @@ process MAPPING {
 
 process IGV {
     container 'aangeloo/nxf-tgs:latest'
+    errorStrategy 'ignore'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
     //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
