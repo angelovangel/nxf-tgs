@@ -188,7 +188,8 @@ process ASSEMBLY {
         --out_dir '02-assembly' \
         ${assembly_args} \
         -r $ver
-    # fix annotations.bed, for make_bed.R to work the R libraries readr, dplyr and stringr have to be available to the user
+    # fix annotations.bed
+    # this has to be moved out in IGV process to be able to run in docker because of the R libraries. Or use base R!
     if [ ${params.pipeline} = 'wf-clone-validation' ]; then
         feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
         cd 02-assembly && make_bed.R feature_table.txt
