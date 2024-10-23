@@ -503,7 +503,7 @@ if (params$sequencer != "Illumina") {
 	file = basename(fastqfiles),
 	gc_content_dist = sapply(gc_density, spark_gc),
 	q_score_dist = sapply(q_score_density, spark_phred),
-	len_hist = sapply(len_density, spark_len),
+	base_yield_by_len = sapply(len_density, spark_len),
 	kmer_counts = sapply(kmers_tbl_list, spark_kmers), 
 	row.names = NULL
   )
