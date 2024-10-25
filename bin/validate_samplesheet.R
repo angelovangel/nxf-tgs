@@ -23,7 +23,7 @@ print_and_capture <- function(x)
 }
 
 df <- readr::read_delim(arg[1], col_names = T, trim_ws = T) %>% 
-  mutate(validate_samplesheet = 'OK')
+  mutate(validate = 'OK')
 
 
 # CHECKS #####################################################
@@ -126,7 +126,7 @@ l <- mapply(length, m) > 0
 if (!all(l)) {
   warning( names(which(!l)), ' has no files')
   #df <- df[l, ]
-  df$validate_samplesheet[!l] <- 'no fastq files'
+  df$validate[!l] <- 'no fastq files'
 }
 
 # check existance of barcode dir
@@ -136,8 +136,8 @@ bc_exists <- fs::dir_exists(paths)
 if (!all(bc_exists)) {
   warning( names(which(!bc_exists)), ' does not exist', call. = F)
   #df <- df[bc_exists, ]
-  df$validate_samplesheet[!bc_exists] <- 'bc does not exist'
+  df$validate[!bc_exists] <- 'bc does not exist'
 }
 
-write_csv(df, file = 'samplesheet-validated.csv')
+write_csv(df, file = 'samplesheet-validated-1.csv')
 

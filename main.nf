@@ -36,11 +36,12 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.5.0'], ['wf-amplicon', 'v1.1.0'], ['wf-bacterial-genomes', 'v1.2.0'])
+wf_versions = Channel.from(['wf-clone-validation', 'v1.5.0'], ['wf-amplicon', 'v1.1.3'], ['wf-bacterial-genomes', 'v1.4.0'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
 // emits *-checked.csv if all ok, exits with error if not
+// also add observed peak size (as seen by fasterplot)
 process VALIDATE_SAMPLESHEET {
     container 'aangeloo/nxf-tgs:latest'
     publishDir "$params.outdir", mode: 'copy', pattern: 'samplesheet-validated.csv'
@@ -55,6 +56,8 @@ process VALIDATE_SAMPLESHEET {
     script:
     """
     validate_samplesheet.R $csv $fastq_pass
+    get_maxbin.sh samplesheet-validated-1.csv $fastq_pass
+
     """
 }
 
@@ -266,17 +269,17 @@ workflow prep_samplesheet {
         VALIDATE_SAMPLESHEET(samplesheet_ch, fastq_pass_ch) 
         .splitCsv(header: true)
         .filter{ it -> it.barcode =~ /^barcode*/ }
-        .filter{it -> it.validate_samplesheet =~ /OK/ }
+        .filter{it -> it.validate =~ /OK/ }
         .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) } 
         .combine(fastq_pass_ch) 
-        //| view()
+        //.view()
         .set { prepped_samplesheet_ch } 
     } else if (params.samplesheet.endsWith(".xlsx")) {
         VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch) \
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
-        .filter{it -> it.validate_samplesheet =~ /OK/ }
+        .filter{it -> it.validate =~ /OK/ }
         .tap { internal_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) }
         .combine(fastq_pass_ch)

@@ -18,8 +18,16 @@ RUN wget -P bin https://github.com/angelovangel/faster/releases/download/v0.2.1/
 RUN wget -P bin https://github.com/angelovangel/faster2/releases/download/v0.3.0/faster2 && \
     chmod 755 bin/faster2
 
+RUN wget -P bin https://github.com/angelovangel/fasterplot/releases/download/v0.1.0/fasterplot && \
+    chmod 755 bin/fasterplot
+
 RUN wget -P bin https://github.com/angelovangel/fastkmers/releases/download/v0.1.3/fastkmers && \
     chmod 755 bin/fastkmers
+
+# seqkit
+RUN wget https://github.com/shenwei356/seqkit/releases/download/v2.8.2/seqkit_linux_amd64.tar.gz && \
+    tar -zxvf seqkit_linux_amd64.tar.gz && \
+    cp seqkit bin/
 
 # samtools
 RUN wget https://github.com/samtools/samtools/releases/download/1.20/samtools-1.20.tar.bz2 && \
