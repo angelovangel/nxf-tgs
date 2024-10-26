@@ -120,6 +120,7 @@ process REPORT {
 process HTMLREPORT {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user"
+    errorStrategy 'ignore'
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
     //publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // v5.1.14 of epi2me-labs looks for html reports recursively, so not needed
     
