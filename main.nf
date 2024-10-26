@@ -120,7 +120,8 @@ process REPORT {
 process HTMLREPORT {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user"
-    errorStrategy 'ignore'
+    errorStrategy 'retry'
+    maxRetries 3
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
     //publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // v5.1.14 of epi2me-labs looks for html reports recursively, so not needed
     
@@ -162,7 +163,7 @@ process HTMLREPORT {
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user"
-    errorStrategy 'ignore'
+    errorStrategy 'retry'
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
@@ -232,7 +233,7 @@ process MAPPING {
 
 process IGV {
     container 'aangeloo/nxf-tgs:latest'
-    errorStrategy 'ignore'
+    errorStrategy 'retry'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
     //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]

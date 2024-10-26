@@ -3,14 +3,14 @@ Process raw Oxford Nanopore data, generate html report, and do de novo assembly 
 
 ## About
 Nextflow pipeline for processing raw Oxford Nanopore run data - merge/rename files, generate read reports, run ONT workflows 
-(wf-clone-validation, wf-bacterial-genomes or wf-amplicon). Raw reads are mapped back to the assemblies and the alignments are visualised in IGV html reports.
+(wf-clone-validation, wf-bacterial-genomes or wf-amplicon). Raw reads are mapped back to the assemblies and the alignments are visualised in IGV html reports. This pipeline can also be imported and run in [EPI2ME](https://labs.epi2me.io/).
 
 
 ## Running
 
 Only `nextflow` and `docker` are required. The required inputs for the pipeline are:
-- path to samplesheet - path to a csv or excel file with columns `sample`, `barcode` and `user`. Other columns can also be there.
-- path to raw ONT data (`path/to/fastq_pass`)
+- `--samplesheet` - path to a csv or excel file with columns `sample`, `barcode` and `user`. Other columns can also be there.
+- `--fastq` - path to fastq_pass
   
 The pipelines runs the following steps:
 - `merge_reads` - merge all reads belonging to a barcode and rename according to the provided samplesheet
