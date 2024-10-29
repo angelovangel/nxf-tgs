@@ -72,4 +72,5 @@ RUN install2.r \
     optparse \
     rmarkdown \
     funr \
+    vroom \
     && rm -rf /tmp/downloaded_packages

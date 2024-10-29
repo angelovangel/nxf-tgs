@@ -167,7 +167,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{txt,fasta,fastq,gbk,bam,bai,annotations.bed}" //wf html report is handled separately
+        pattern: "02-assembly/**{txt,fasta,fai,fastq,gbk,bam,bai,json,annotations.bed}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -184,6 +184,7 @@ process ASSEMBLY {
     path "**"
     // this is not output by wf-amplicon and bacterial genome, so no mapping and IGV report there
     tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
+    tuple val(user), path("02-assembly/sample_status.txt"), optional: true, emit: sample_status_ch
 
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -200,6 +201,48 @@ process ASSEMBLY {
         feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
         cd 02-assembly && make_bed.R feature_table.txt
     fi
+    """
+}
+
+process SAMPLE_STATUS {
+    container 'aangeloo/nxf-tgs:latest'
+    tag "$user"
+    errorStrategy 'ignore'
+
+    publishDir(
+        "$params.outdir/$user", 
+        mode: "copy", 
+        pattern: "*.csv",
+        saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
+    )
+    
+    input:
+    tuple val(user), path(sample_status), path(samplesheet_validated)
+
+    output:
+    path("*.csv"), emit: merged_sample_status_ch
+
+    script:
+    """
+    sample_status.R ${user} ${sample_status} ${samplesheet_validated}
+    """
+}
+
+// https://www.nextflow.io/docs/latest/process.html#multiple-input-files
+process SAMPLE_SUMMARY {
+    container 'aangeloo/nxf-tgs:latest'
+    errorStrategy 'ignore'
+    publishDir "$params.outdir", mode: "copy", pattern: "*.html"
+
+    input:
+    path "sample-status*.csv"
+
+    output:
+    path("*.html")
+
+    script:
+    """
+    sample_summary.R "*.csv"
     """
 }
 
@@ -269,6 +312,7 @@ workflow prep_samplesheet {
     main:
     if (params.samplesheet.endsWith(".csv")) {
         VALIDATE_SAMPLESHEET(samplesheet_ch, fastq_pass_ch) 
+        .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{ it -> it.barcode =~ /^barcode*/ }
         .filter{it -> it.validate =~ /OK/ }
@@ -306,7 +350,9 @@ workflow prep_samplesheet {
     emit:
     prepped_samplesheet_ch
     assembly_ch
+    validated_samplesheet_ch
 }
+
 workflow merge_reads {
     //prep_samplesheet()
     prep_samplesheet().prepped_samplesheet_ch \
@@ -322,6 +368,7 @@ workflow report {
     emit:
     fastq_ch = MERGE_READS.out.merged_fastq_ch
     new_assembly_ch = prep_samplesheet.out.assembly_ch
+    validated_samplesheet_ch2 = prep_samplesheet.out.validated_samplesheet_ch
 }
 
 //barcode,alias,approx_size are needed by epi2me/wf
@@ -344,7 +391,11 @@ workflow {
         .join(fastq_ch, by:[0,1])
         //.view()
         .set { mapping_ch }
-
+        
+        ASSEMBLY.out.sample_status_ch
+        .combine(report.out.validated_samplesheet_ch2)
+        | SAMPLE_STATUS
+        
         MAPPING(mapping_ch)
         
         MAPPING.out.bam_ch
@@ -353,5 +404,9 @@ workflow {
         //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
         //.view()
         | IGV
+
+        SAMPLE_STATUS.out.merged_sample_status_ch
+        .collect()
+        | SAMPLE_SUMMARY
     }
 }
