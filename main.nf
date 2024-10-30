@@ -44,19 +44,19 @@ wf_ver = Channel.from(params.pipeline).join(wf_versions)
 // also add observed peak size (as seen by fasterplot)
 process VALIDATE_SAMPLESHEET {
     container 'aangeloo/nxf-tgs:latest'
-    publishDir "$params.outdir", mode: 'copy', pattern: 'samplesheet-validated.csv'
+    publishDir "$params.outdir", mode: 'copy', pattern: '00-samplesheet-validated.csv'
 
     input: 
     path(csv)
     path(fastq_pass)
 
     output:
-    path("samplesheet-validated.csv")
+    path("00-samplesheet-validated.csv")
 
     script:
     """
     validate_samplesheet.R $csv $fastq_pass
-    get_maxbin.sh samplesheet-validated-1.csv $fastq_pass
+    get_maxbin.sh samplesheet-validated.csv $fastq_pass
 
     """
 }
@@ -101,7 +101,7 @@ process MERGE_READS {
 process REPORT {
     container 'aangeloo/nxf-tgs:latest'
     tag "$user"
-    publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.tsv'
+    //publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.tsv'
 
     input:
     tuple val(user), path(fastqfiles)
@@ -111,9 +111,9 @@ process REPORT {
     
     script:
     """
-    echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > 00-${user}-faster-report.tsv
-    #parallel -k faster -ts ::: $fastqfiles >> 00-${user}-faster-report.tsv
-    faster2 -ts $fastqfiles >> 00-${user}-faster-report.tsv
+    echo "file\treads\tbases\tn_bases\tmin_len\tmax_len\tN50\tGC_percent\tQ20_percent" > 01-${user}-faster-report.tsv
+    # parallel -k faster -ts ::: $fastqfiles >> 00-${user}-faster-report.tsv
+    faster2 -ts $fastqfiles >> 01-${user}-faster-report.tsv
     """
 }
 
@@ -152,7 +152,7 @@ process HTMLREPORT {
     fi
 
     faster-report.R -p . \
-        --outfile 00-${user}-faster-report \
+        --outfile 01-${user}-faster-report \
         --user ${user} \
         --rundate \$RUNDATE \
         --flowcell \$FLOWCELL \
@@ -173,7 +173,7 @@ process ASSEMBLY {
         "$params.outdir/$user", 
         mode: "copy", 
         pattern: "02-assembly/*html", 
-        saveAs: { fn -> "00-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
+        saveAs: { fn -> "02-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
     ) 
     // [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
     input:
@@ -198,7 +198,8 @@ process ASSEMBLY {
     # fix annotations.bed
     # this has to be moved out in IGV process to be able to run in docker because of the R libraries. Or use base R!
     if [ ${params.pipeline} = 'wf-clone-validation' ]; then
-        feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
+        # if feature_table is empty do not run make_bed.R - implemented in make_bed.R
+        # feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
         cd 02-assembly && make_bed.R feature_table.txt
     fi
     """
@@ -276,7 +277,8 @@ process MAPPING {
 
 process IGV {
     container 'aangeloo/nxf-tgs:latest'
-    errorStrategy 'retry'
+    // https://training.nextflow.io/basic_training/debugging/#dynamic-resources-allocation
+    errorStrategy { task.exitStatus == 1 ? 'retry' : 'ignore' }
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
     //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]

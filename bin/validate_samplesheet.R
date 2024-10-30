@@ -139,5 +139,5 @@ if (!all(bc_exists)) {
   df$validate[!bc_exists] <- 'bc does not exist'
 }
 
-write_csv(df, file = 'samplesheet-validated-1.csv')
+write_csv(df, file = 'samplesheet-validated.csv')
 

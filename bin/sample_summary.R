@@ -18,6 +18,7 @@ finaltable <-
   DT::datatable(
     dplyr::arrange(df, user, sample),
     class = 'compact',
+    caption = paste0("Timestamp: ", format.POSIXct(Sys.time())),
     # style = 'bootstrap',
     escape = F, filter = 'top',
     extensions = 'Buttons', rownames = FALSE,

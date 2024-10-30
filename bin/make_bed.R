@@ -18,6 +18,11 @@
 arg <- commandArgs(trailingOnly = T)
 
 df <- utils::read.delim(arg[1], sep = ',', check.names = F)
+if (nrow(df) < 1) {
+  quit(status = 0) # exit script successfully even if feature_table.txt is empty to not crash the process
+  # stop('No features in feature_table.txt')
+}
+
 # identity % as numbers
 df$Identity <- as.numeric(gsub(pattern = "%", "", df$Identity))
 # change strand to +/-
@@ -26,10 +31,6 @@ df$Strand <- replace(df$Strand, df$Strand == -1, "-")
 # select only required columns
 df <- df[c('Sample_name', 'Start Location', 'End Location', 'Feature', 'Identity', 'Strand', 'Plasmid length')]
   #dplyr::select(Sample_name, `Start Location`, `End Location`, Feature, Identity, Strand, `Plasmid length`)
-if (nrow(df) < 1) {
-  #quit(status = 0)
-  stop('No features in feature_table.txt')
-}
 
 # actual fix of features spanning origin
 df1 <- df[df$`Start Location` < df$`End Location`, ]
