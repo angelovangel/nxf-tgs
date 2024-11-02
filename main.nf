@@ -185,7 +185,8 @@ process ASSEMBLY {
     // this is not output by wf-amplicon and bacterial genome, so no mapping and IGV report there
     tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
     tuple val(user), path("02-assembly/sample_status.txt"), optional: true, emit: sample_status_ch
-
+    tuple val(user), path("02-assembly/*.assembly_stats.tsv"), optional: true, emit: assembly_stats_ch
+    
     script:
     def assembly_args = params.assembly_args ?: ''
     """
@@ -216,9 +217,11 @@ process SAMPLE_STATUS {
         pattern: "*.csv",
         saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
     )
-    
+
+    //
+    // stage assembly_stats.tsv files but don't pass as arguments to the Rscript
     input:
-    tuple val(user), path(sample_status), path(samplesheet_validated)
+    tuple val(user), path(sample_status), path(samplesheet_validated), path(assembly_stats)
 
     output:
     path("*.csv"), emit: merged_sample_status_ch
@@ -243,7 +246,7 @@ process SAMPLE_SUMMARY {
 
     script:
     """
-    sample_summary.R "*.csv"
+    sample_summary.R "*.csv" $workflow.runName
     """
 }
 
@@ -275,7 +278,7 @@ process MAPPING {
 
 }
 
-process IGV {
+process IGV_REPORTS {
     container 'aangeloo/nxf-tgs:latest'
     // https://training.nextflow.io/basic_training/debugging/#dynamic-resources-allocation
     errorStrategy { task.exitStatus == 1 ? 'retry' : 'ignore' }
@@ -396,8 +399,13 @@ workflow {
         
         ASSEMBLY.out.sample_status_ch
         .combine(report.out.validated_samplesheet_ch2)
+        .join(ASSEMBLY.out.assembly_stats_ch)
+        //.view()
         | SAMPLE_STATUS
         
+        SAMPLE_STATUS.out.merged_sample_status_ch
+        .collect()
+        | SAMPLE_SUMMARY
         MAPPING(mapping_ch)
         
         MAPPING.out.bam_ch
@@ -405,10 +413,6 @@ workflow {
         .map{ it -> it[0..3] } 
         //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
         //.view()
-        | IGV
-
-        SAMPLE_STATUS.out.merged_sample_status_ch
-        .collect()
-        | SAMPLE_SUMMARY
+        | IGV_REPORTS
     }
 }
