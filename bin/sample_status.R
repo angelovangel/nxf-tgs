@@ -4,7 +4,7 @@
 # produse sample_status.csv summary for every users
 
 # arg[1] is user 
-# arg[2] is sample_status
+# arg[2] is sample_status.txt
 # arg[3] is samplesheet_validated
 # 
 library(dplyr)
@@ -13,7 +13,7 @@ library(vroom)
 arg <- commandArgs(trailingOnly = T)
 tsvfiles <- list.files(path = ".", pattern = "*.assembly_stats.tsv", full.names = T)
 
-df1 <- vroom(arg[2], col_names = T, trim_ws = T)
+df1 <- vroom(arg[2], col_names = T, trim_ws = T, na = 'N/A') #! sample_status.txt
 colnames(df1) <- c('sample', 'pass_fail', 'length')
 
 df2 <- vroom(arg[3], col_names = T, trim_ws = T)

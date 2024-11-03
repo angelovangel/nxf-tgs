@@ -201,7 +201,13 @@ process ASSEMBLY {
     if [ ${params.pipeline} = 'wf-clone-validation' ]; then
         # if feature_table is empty do not run make_bed.R - implemented in make_bed.R
         # feature_counts=\$(wc -l < 02-assembly/feature_table.txt)
-        cd 02-assembly && make_bed.R feature_table.txt
+        cd 02-assembly && make_bed.R feature_table.txt && cd ..
+    fi
+
+    # put an empty assembly_stats.tsv in case no sample for this user works, to avoid having null in assembly_stats_ch
+    if [ ! -f 02-assembly/*.assembly_stats.tsv ]; then
+        touch 02-assembly/empty.assembly_stats.tsv
+        echo -e "sample_name\tmean_quality" >> 02-assembly/empty.assembly_stats.tsv
     fi
     """
 }
@@ -227,6 +233,9 @@ process SAMPLE_STATUS {
     path("*.csv"), emit: merged_sample_status_ch
 
     script:
+    // *assembly_stats.tsv is not there for failing samples, if no samples succeed for a user then assembly_stats_ch is not emitted
+    // if remainder = true, then assembly_stats_ch is null
+    
     """
     sample_status.R ${user} ${sample_status} ${samplesheet_validated}
     """
@@ -396,16 +405,19 @@ workflow {
         .join(fastq_ch, by:[0,1])
         //.view()
         .set { mapping_ch }
-        
+    }
+
+    if (params.pipeline == 'wf-clone-validation') {
         ASSEMBLY.out.sample_status_ch
         .combine(report.out.validated_samplesheet_ch2)
-        .join(ASSEMBLY.out.assembly_stats_ch)
+        .join(ASSEMBLY.out.assembly_stats_ch, remainder: true)
         //.view()
         | SAMPLE_STATUS
         
         SAMPLE_STATUS.out.merged_sample_status_ch
         .collect()
         | SAMPLE_SUMMARY
+
         MAPPING(mapping_ch)
         
         MAPPING.out.bam_ch
