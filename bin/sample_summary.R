@@ -39,7 +39,11 @@ finaltable <-
 DT::datatable(
   dplyr::arrange(df, user, sample),
   class = 'compact',
-  caption = paste0("Run name: ", arg[2], " | Time: ", format.POSIXct(Sys.time())),
+  # caption = paste0("Run name: ", arg[2], " | Time: ", format.POSIXct(Sys.time())),
+  caption = htmltools::tags$caption(
+    style = 'caption-side: bottom; text-align: left; color: grey;',
+    paste0(arg[2], " | ", format.POSIXct(Sys.time()))
+  ),
   # style = 'bootstrap',
   escape = F, filter = 'top',
   extensions = 'Buttons', rownames = FALSE,
