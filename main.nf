@@ -337,7 +337,8 @@ workflow prep_samplesheet {
         //.view()
         .set { prepped_samplesheet_ch } 
     } else if (params.samplesheet.endsWith(".xlsx")) {
-        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch) \
+        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch)
+        .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .filter{it -> it.validate =~ /OK/ }
