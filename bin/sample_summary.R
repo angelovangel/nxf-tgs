@@ -14,7 +14,8 @@ library(DT)
 arg <- commandArgs(trailingOnly = T)
 csvfiles <- list.files(pattern = arg[1], full.names = T)
 
-df <- vroom(file = csvfiles) 
+df <- vroom(file = csvfiles) %>% 
+  mutate(diff = abs(log2(obs_size / user_size)))
 #df
 # finaltable <- 
 #   reactable(
@@ -48,6 +49,7 @@ DT::datatable(
   escape = F, filter = 'top',
   extensions = 'Buttons', rownames = FALSE,
   options = list(
+    columnDefs = list(list(targets = 'diff', visible = FALSE)), # hide diff
     searchHighlight = TRUE,
     rowCallback = JS(rowCallback),
     autoWidth = TRUE, pageLength = 25,
@@ -56,7 +58,9 @@ DT::datatable(
     buttons = c('copy', 'csv', 'excel')
   )
 ) %>% 
+# style user_size based on diff
+DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#1e8449', '#f5b041', '#e74c3c'))) %>%
 DT::formatRound('assembly_quality', 2) %>%
-DT::formatStyle('assembly_quality', color = styleInterval(c(30, 40), c('red', 'orange', 'black')))
+DT::formatStyle('assembly_quality', color = styleInterval(c(30, 40), c('#e74c3c', '#f5b041', '#37474F')))
 
 DT::saveWidget(finaltable, '00-sample-status-summary.html')

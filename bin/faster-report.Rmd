@@ -203,13 +203,23 @@ The report contains
 
 ```{r table1, include=TRUE}
 
+# do not go to table2 if not enough reads
+if (any(df$num_reads < 10)) {
+  checkpoint <- FALSE
+} else {
+  checkpoint <- TRUE
+}
+
 
 DT::datatable(
   df,
   escape = F,
   filter = 'top',
-  caption = paste0(""),
   extensions = 'Buttons',
+  caption = htmltools::tags$caption(
+    style = 'caption-side: bottom; text-align: left; color: grey;',
+    paste0('All samples have at least 10 reads: ', checkpoint)
+  ),
   options = list(
     dom = 'Btp',
     paging = FALSE,
@@ -227,7 +237,7 @@ DT::datatable(
 
 ### Content, phred-score and k-mer metrics
 
-```{r table2, include=TRUE, message=FALSE}
+```{r table2, include=TRUE, message=FALSE, eval=checkpoint}
 # sparkline(0) # load dependencies
 # see https://omnipotent.net/jquery.sparkline/#s-docs
 # on how to include both x and y values in spark
