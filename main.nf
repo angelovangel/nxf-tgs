@@ -291,7 +291,7 @@ process IGV_REPORTS {
     container 'aangeloo/nxf-tgs:latest'
     // https://training.nextflow.io/basic_training/debugging/#dynamic-resources-allocation
     //errorStrategy { task.exitStatus == 1 ? 'retry' : 'ignore' }
-    errorStrategy 'retry'
+    errorStrategy 'ignore'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
     //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
