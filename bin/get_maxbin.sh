@@ -11,7 +11,7 @@ echo "$(head -n 1 $1),obs_size" > 00-samplesheet-validated.csv
 
 while IFS="," read line; do
     barcode=$(echo $line | cut -f $barcode_idx -d,)
-    obs_size=$(cat $2/$barcode/*.fastq.gz | seqkit seq -M 49999 -g | fasterplot -l - |  grep "# maxbin:" | cut -f2 )
+    obs_size=$(cat $2/$barcode/*.fastq.gz | seqkit seq -M 49499 -g | fasterplot -l - |  grep "# maxbin:" | cut -f2 )
     
     echo -e "$line,$obs_size" >> 00-samplesheet-validated.csv
 

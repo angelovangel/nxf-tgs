@@ -221,7 +221,7 @@ DT::datatable(
     paste0('All samples have at least 10 reads: ', checkpoint)
   ),
   options = list(
-    dom = 'Btp',
+    dom = 'Btpi',
     paging = FALSE,
     buttons = c('copy', 'csv', 'excel')
   ),

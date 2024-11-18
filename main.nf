@@ -35,8 +35,8 @@ log.info """\
     .stripIndent(true)
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
-samplesheet_ch = Channel.fromPath(params.samplesheet)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.5.0'], ['wf-amplicon', 'v1.1.3'], ['wf-bacterial-genomes', 'v1.4.0'])
+samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExists: true)
+wf_versions = Channel.from(['wf-clone-validation', 'v1.5.0'], ['wf-amplicon', 'v1.1.3'], ['wf-bacterial-genomes', 'v1.4.1'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
@@ -56,7 +56,12 @@ process VALIDATE_SAMPLESHEET {
     script:
     """
     validate_samplesheet.R $csv $fastq_pass
-    get_maxbin.sh samplesheet-validated.csv $fastq_pass
+    
+    if [ ${params.pipeline} == 'wf-clone-validation' ]; then
+        get_maxbin.sh samplesheet-validated.csv $fastq_pass
+    else
+        mv samplesheet-validated.csv 00-samplesheet-validated.csv
+    fi
 
     """
 }
@@ -196,6 +201,7 @@ process ASSEMBLY {
         --out_dir '02-assembly' \
         ${assembly_args} \
         -r $ver
+        
     # fix annotations.bed
     # this has to be moved out in IGV process to be able to run in docker because of the R libraries. Or use base R!
     if [ ${params.pipeline} = 'wf-clone-validation' ]; then
