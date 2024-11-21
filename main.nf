@@ -313,10 +313,13 @@ process IGV_REPORTS {
     header=\$(grep ">" ${fasta[0]} | cut -c 2-)
     # dynamic calculation for subsampling, subsample for > 500 alignments
     count=\$(samtools view -c ${mapping[0]})
+    percent_aln=\$(samtools flagstat ${mapping[0]} | grep 'primary mapped' | cut -d"(" -f 2 | cut -d" " -f1)
+    all_reads=\$(samtools flagstat ${mapping[0]} | grep 'primary\$' | cut -d" " -f1)
+
     subsample=\$(echo \$count | awk '{if (\$1 <500) {print 1} else {print 500/\$1}}')
     
     # construct bed file
-    echo -e "\$header\t0\t\$len\tsubsampled alignments (\$subsample)" > bedfile.bed
+    echo -e "\$header\t0\t\$len\tPrimary alignments: \$percent_aln of \$all_reads reads" > bedfile.bed
     awk -v OFS='\t' -v chr=\$header 'NR>1 {print chr, \$1-1, \$1, "HET"}' ${mapping[2]} >> bedfile.bed
 
     create_report \
