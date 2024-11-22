@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # combine sample_status.txt and samplesheet_validated.csv
-# produse sample_status.csv summary for every users
+# produce sample_status.csv summary for every users
 
 # arg[1] is user 
 # arg[2] is sample_status.txt

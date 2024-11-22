@@ -277,8 +277,10 @@ process MAPPING {
     output:
     path "*.{bam,bai,tsv}"
     tuple val(user), val(sample), path("*.{bam,bai,problems.tsv}"), emit: bam_ch
+    tuple val(user), path("*mapping-counts.txt"), emit: mapping_counts_ch//, optional: true
 
     script:
+    def mg1655 = file("${projectDir}/assets/mg1655.fasta")
     """
     minimap2 -ax lr:hq ${finalfasta[0]} $fastq > mapping.sam
 
@@ -289,8 +291,46 @@ process MAPPING {
 
     perbase base-depth --threads 4 ${sample}.bam -F 260 > ${sample}.perbase.tsv
     perpos_freq.sh ${sample}.perbase.tsv > ${sample}.problems.tsv
+
+    # get mapping statistics for mapping to assembly and to e. coli genome
+    # only for plasmids
+    
+    if [ ${params.pipeline} == 'wf-clone-validation' ]; then
+        # replace fasta header to "sample"
+        seqkit replace -p ".*" -r "assembly" ${finalfasta[0]} > target.fasta
+        cat ${mg1655} >> target.fasta
+        minimap2 -x lr:hq --secondary=no target.fasta $fastq > mapping_counts.paf
+        allreads=\$(faster2 -l $fastq | wc -l | tr -d " ")
+
+        awk '{if (\$12 >= 50 ) print \$1,\$6}' mapping_counts.paf | sort | uniq | cut -d" " -f2 | sort | uniq -c > temp.txt
+        echo "\$allreads allreads" >> temp.txt
+        awk '{print \$2}' temp.txt | paste -sd ' ' - > $sample-mapping-counts.txt
+        awk '{print \$1}' temp.txt | paste -sd ' ' - >> $sample-mapping-counts.txt  
+    fi
+    
     """
 
+}
+
+process MAPPING_COUNTS {
+    container 'aangeloo/nxf-tgs:latest'
+    publishDir(
+        "$params.outdir/$user", 
+        mode: "copy", 
+        pattern: "*.csv",
+        saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
+    )
+
+    input:
+    tuple val(user), path(mapping_counts)
+
+    output:
+    path('*.csv')
+
+    script:
+    """
+    mapping_counts.R "*mapping-counts.txt" $user
+    """
 }
 
 process IGV_REPORTS {
@@ -437,5 +477,10 @@ workflow {
         //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
         //.view()
         | IGV_REPORTS
+
+        MAPPING.out.mapping_counts_ch
+        .groupTuple() // group by user
+        //.view()
+        | MAPPING_COUNTS
     }
 }
