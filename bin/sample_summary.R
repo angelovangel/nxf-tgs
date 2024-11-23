@@ -52,7 +52,7 @@ DT::datatable(
     columnDefs = list(list(targets = 'diff', visible = FALSE)), # hide diff
     searchHighlight = TRUE,
     rowCallback = JS(rowCallback),
-    autoWidth = TRUE, pageLength = 25,
+    autoWidth = TRUE, pageLength = 125,
     dom = 'Btp',
     paging = FALSE,
     buttons = c('copy', 'csv', 'excel')

@@ -314,6 +314,7 @@ process MAPPING {
 
 process MAPPING_COUNTS {
     container 'aangeloo/nxf-tgs:latest'
+    tag "$user"
     publishDir(
         "$params.outdir/$user", 
         mode: "copy", 
@@ -325,12 +326,29 @@ process MAPPING_COUNTS {
     tuple val(user), path(mapping_counts)
 
     output:
-    path('*.csv')
+    path('*.csv'), emit: merged_mapping_counts_ch
 
     script:
     """
     mapping_counts.R "*mapping-counts.txt" $user
     """
+}
+
+process MAPPING_SUMMARY {
+    container 'aangeloo/nxf-tgs:latest'
+    publishDir "$params.outdir", mode: 'copy'
+
+    input:
+    path('*mapping-summary.csv')
+
+    output:
+    path("*.html")
+
+    script:
+    """
+    mapping_summary.R "*.csv" $workflow.runName
+    """ 
+
 }
 
 process IGV_REPORTS {
@@ -482,5 +500,11 @@ workflow {
         .groupTuple() // group by user
         //.view()
         | MAPPING_COUNTS
+        
+        MAPPING_COUNTS.out.merged_mapping_counts_ch
+        .collect()
+        //.view()
+        | MAPPING_SUMMARY
+
     }
 }

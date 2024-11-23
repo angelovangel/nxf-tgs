@@ -17,9 +17,9 @@ df <- vroom(countsfiles, id = 'sample') %>%
     user = arg[2],
     sample = str_remove(basename(sample), "-mapping-counts.txt")) %>%
   mutate(
-    percent_assembly = round(assembly/allreads*100, 2), 
-    percent_coli = round(NC_000913.3/allreads*100, 2), 
-    percent_nonmapping = round((allreads - (assembly+NC_000913.3))/allreads*100, 2)
+    percent_assembly = assembly/allreads*100, 
+    percent_coli = NC_000913.3/allreads*100, 
+    percent_nonmapping = (allreads - (assembly+NC_000913.3))/allreads*100
     )
   
 df %>%
