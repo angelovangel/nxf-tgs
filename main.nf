@@ -301,8 +301,9 @@ process MAPPING {
         cat ${mg1655} >> target.fasta
         minimap2 -x lr:hq --secondary=no target.fasta $fastq > mapping_counts.paf
         allreads=\$(faster2 -l $fastq | wc -l | tr -d " ")
-
-        awk '{if (\$12 >= 50 ) print \$1,\$6}' mapping_counts.paf | sort | uniq | cut -d" " -f2 | sort | uniq -c > temp.txt
+        
+        # filter mapq > 60 and alen/qlen > 0.4 
+        awk '{if (\$12 >= 60 && \$11/\$2 >= 0.4 ) print \$1,\$6}' mapping_counts.paf | sort | uniq | cut -d" " -f2 | sort | uniq -c > temp.txt
         echo "\$allreads allreads" >> temp.txt
         awk '{print \$2}' temp.txt | paste -sd ' ' - > $sample-mapping-counts.txt
         awk '{print \$1}' temp.txt | paste -sd ' ' - >> $sample-mapping-counts.txt  
