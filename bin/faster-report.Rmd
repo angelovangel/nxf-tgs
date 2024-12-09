@@ -149,13 +149,15 @@ dfcols <- c("file", "num_reads", "duplex_reads", "bases", "n_bases", "min_len", 
 #   dfcols <- c("file", "num_reads", "bases", "n_bases", "min_len", "max_len", "avg_len", "N50", "Q20_percent", "Q30_percent")
 # }
 
-
 #stats <- parallel::mcmapply(stats_command, fastqfiles)
+
+# lexocographical arrange of file
+locale <- list(locale = "en_US", numeric = TRUE)
 
 df <- stats_df %>% 
 	dplyr::mutate(file = basename(file)) %>% 
   dplyr::mutate(duplex_reads = nduplex) %>%
-	dplyr::arrange(file) %>%
+	dplyr::arrange(stringi::stri_rank(file, opts_collator = locale)) %>%
 	dplyr::select(dfcols)
 
 # subsample fastqfiles if they are too big, use subsampled for table2 only
@@ -536,7 +538,7 @@ table2_caption <- ifelse(
   "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts (k = 3). The q-scores 20 and 30 are in red."
 )
 gc_df %>%
-	dplyr::arrange(file) %>%
+	dplyr::arrange(stringi::stri_rank(file, opts_collator = locale)) %>%
 	kableExtra::kbl(
 	  escape = F, 
 	  caption = table2_caption) %>%

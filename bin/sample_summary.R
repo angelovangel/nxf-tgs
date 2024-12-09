@@ -35,32 +35,34 @@ rowCallback <- c(
     "  }",
     "}"  
   )
+# lexocographical arrange of file
+locale <- list(locale = "en_US", numeric = TRUE)
 
 finaltable <- 
-DT::datatable(
-  dplyr::arrange(df, user, sample),
-  class = 'compact',
-  # caption = paste0("Run name: ", arg[2], " | Time: ", format.POSIXct(Sys.time())),
-  caption = htmltools::tags$caption(
-    style = 'caption-side: bottom; text-align: left; color: grey;',
-    paste0(arg[2], " | ", format.POSIXct(Sys.time()))
-  ),
-  # style = 'bootstrap',
-  escape = F, filter = 'top',
-  extensions = 'Buttons', rownames = FALSE,
-  options = list(
-    columnDefs = list(list(targets = 'diff', visible = FALSE)), # hide diff
-    searchHighlight = TRUE,
-    rowCallback = JS(rowCallback),
-    autoWidth = TRUE, pageLength = 125,
-    dom = 'Btp',
-    paging = FALSE,
-    buttons = c('copy', 'csv', 'excel')
-  )
-) %>% 
+  DT::datatable(
+    dplyr::arrange(df, user, stringi::stri_rank(sample, opts_collator = locale)),
+    class = 'compact',
+    # caption = paste0("Run name: ", arg[2], " | Time: ", format.POSIXct(Sys.time())),
+    caption = htmltools::tags$caption(
+      style = 'caption-side: bottom; text-align: left; color: grey;',
+      paste0(arg[2], " | ", format.POSIXct(Sys.time()))
+    ),
+    # style = 'bootstrap',
+    escape = F, filter = 'top',
+    extensions = 'Buttons', rownames = FALSE,
+    options = list(
+      columnDefs = list(list(targets = 'diff', visible = FALSE)), # hide diff
+      searchHighlight = TRUE,
+      rowCallback = JS(rowCallback),
+      autoWidth = TRUE, pageLength = 125,
+      dom = 'Btp',
+      paging = FALSE,
+      buttons = c('copy', 'csv', 'excel')
+    )
+  ) %>% 
 # style user_size based on diff
 DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#1e8449', '#f5b041', '#e74c3c'))) %>%
 DT::formatRound('assembly_quality', 2) %>%
-DT::formatStyle('assembly_quality', color = styleInterval(c(30, 40), c('#e74c3c', '#f5b041', '#37474F')))
+DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#37474F')))
 
 DT::saveWidget(finaltable, '00-sample-status-summary.html')

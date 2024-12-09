@@ -24,10 +24,12 @@ rowCallback <- c(
   "  }",
   "}"  
 )
+# lexocographical arrange of file
+locale <- list(locale = "en_US", numeric = TRUE)
 
 finaltable <- 
   DT::datatable(
-    dplyr::arrange(df, user, sample),
+    dplyr::arrange(df, user, stringi::stri_rank(sample, opts_collator = locale)),
     class = 'compact',
     # caption = paste0("Run name: ", arg[2], " | Time: ", format.POSIXct(Sys.time())),
     caption = htmltools::tags$caption(
