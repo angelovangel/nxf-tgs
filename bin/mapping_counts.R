@@ -12,7 +12,13 @@ library(stringr)
 arg <- commandArgs(trailingOnly = T)
 
 countsfiles <- list.files(pattern = arg[1], full.names = T)
-df <- vroom(countsfiles, id = 'sample') %>% 
+
+# do not use vroom directly for it fails if the files have different number of columns, for example when no reads map to coli
+
+df <- 
+  lapply(countsfiles, vroom, id = 'sample', show_col_types = F) %>% 
+  bind_rows() %>%
+  #vroom(countsfiles, id = 'sample') %>% 
   mutate(
     user = arg[2],
     sample = str_remove(basename(sample), "-mapping-counts.txt")) %>%
