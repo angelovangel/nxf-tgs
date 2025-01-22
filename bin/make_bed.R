@@ -32,6 +32,9 @@ df$Strand <- replace(df$Strand, df$Strand == -1, "-")
 df <- df[c('Sample_name', 'Start Location', 'End Location', 'Feature', 'Identity', 'Strand', 'Plasmid length')]
   #dplyr::select(Sample_name, `Start Location`, `End Location`, Feature, Identity, Strand, `Plasmid length`)
 
+# remove features with length 0, IGV crashes on these "Null Interval objects not allowed .."
+df <- df[df$`Start Location` != df$`End Location`, ]
+
 # actual fix of features spanning origin
 df1 <- df[df$`Start Location` < df$`End Location`, ]
 # these have to be regenerated in 2 rows - 1..end and start..len

@@ -54,4 +54,4 @@ finaltable <-
   DT::formatStyle('percent_assembly', color = styleInterval(c(40, 60), c('#e74c3c', '#f5b041', '#1e8449'))) %>%
   DT::formatStyle(c('percent_coli', 'percent_nonmapping'), color = styleInterval(c(20, 40), c('#1e8449', '#f5b041', '#e74c3c')))
 
-DT::saveWidget(finaltable, '00-sample-mapping-summary.html')
+DT::saveWidget(finaltable, file = '00-sample-mapping-summary.html', title = "mapping-summary")

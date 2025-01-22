@@ -65,4 +65,4 @@ DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#1e8449
 DT::formatRound('assembly_quality', 2) %>%
 DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#37474F')))
 
-DT::saveWidget(finaltable, '00-sample-status-summary.html')
+DT::saveWidget(finaltable, file = '00-sample-status-summary.html', title = "sample-status-summary")

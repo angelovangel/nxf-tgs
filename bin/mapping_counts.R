@@ -26,7 +26,8 @@ df <-
     percent_assembly = assembly/allreads*100, 
     percent_coli = NC_000913.3/allreads*100, 
     percent_nonmapping = (allreads - (assembly+NC_000913.3))/allreads*100
-    )
+    ) %>%
+  dplyr::select(-c('assembly', 'NC_000913.3'))
   
 df %>%
   dplyr::relocate('user') %>%
