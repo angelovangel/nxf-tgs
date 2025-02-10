@@ -195,7 +195,7 @@ num_bases_text <- system2("./siformat.sh", args = num_bases, stdout = T)
 
 ***
 
-### Number of reads and read quality metrics
+### FASTQ read quality metrics
 The report contains 
 <blockquote>  
 **`r num_files`** fastq files  
@@ -212,32 +212,22 @@ if (any(df$num_reads < 10)) {
   checkpoint <- TRUE
 }
 
-
-DT::datatable(
+kableExtra::kbl(
   df,
-  escape = F,
-  filter = 'top',
-  extensions = 'Buttons',
-  caption = htmltools::tags$caption(
-    style = 'caption-side: bottom; text-align: left; color: grey;',
-    paste0('All samples have at least 10 reads: ', checkpoint)
-  ),
-  options = list(
-    dom = 'Btpi',
-    paging = FALSE,
-    buttons = c('copy', 'csv', 'excel')
-  ),
-  rownames = FALSE,
-  class = 'hover row-border'
-) %>%
-  DT::formatRound(2:9, 0) %>%
-  DT::formatRound(10:11, 2)
+  digits = 2, escape = F,
+  caption = 'Table 1. FASTQ files statistics', 
+  format.args = list(big.mark = ",")
+  ) %>%
+  #column_spec(2, background = spec_color(df$reads, option = 'turbo', begin = 0.4, end = 0.6)) %>%
+  # kable_styling(
+  #   full_width = T, fixed_thead = TRUE, bootstrap_options = c("responsive")
+  # ) %>%
+  kable_styling(bootstrap_options = 'hover', full_width = TRUE)
+
 
 ```
 
 ***
-
-### Content, phred-score and k-mer metrics
 
 ```{r table2, include=TRUE, message=FALSE, eval=checkpoint}
 # sparkline(0) # load dependencies
@@ -537,15 +527,12 @@ table2_caption <- ifelse(
   "Density distributions of GC-content, 'mean' q-score, length and k-mer counts (k = 3). The q-scores 10, 20, 30, 40 are in red. Lengths > 50 kb are binned to 50 kb.",
   "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts (k = 3). The q-scores 20 and 30 are in red."
 )
+
 gc_df %>%
-	dplyr::arrange(stringi::stri_rank(file, opts_collator = locale)) %>%
-	kableExtra::kbl(
-	  escape = F, 
-	  caption = table2_caption) %>%
-  #kable_minimal()
-	kable_styling(
-	  fixed_thead = TRUE, bootstrap_options = c("responsive")
-	)
+  dplyr::arrange(stringi::stri_rank(file, opts_collator = locale)) %>%
+  kableExtra::kbl(escape = F,
+                  caption = paste0("Table2. ", table2_caption)) %>%
+  kable_styling(full_width = T)
 
 ```
 
