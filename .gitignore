@@ -10,3 +10,4 @@ testdata*
 .vscode
 mapping.nf
 wf-demo*
+.Rproj.user
