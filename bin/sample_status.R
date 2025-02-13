@@ -43,7 +43,7 @@ if (length(tsvfiles > 0)) {
 df2 %>% 
   #mutate(user = arg[1]) %>%
   left_join(df1, by = join_by(sample)) %>%
-  dplyr::select(c('user', 'sample', 'validate','barcode', user_size = 'dna_size', 'obs_size', assembly_size = 'length')) %>%
+  dplyr::select(c('user', 'sample', 'barcode', 'validate', status = 'pass_fail', user_size = 'dna_size', 'obs_size', assembly_size = 'length')) %>%
   left_join(df3, by = c('sample' = 'sample_name')) %>%
   write.csv(file = 'sample-status.csv', row.names = F, col.names = T, sep = ",")
   

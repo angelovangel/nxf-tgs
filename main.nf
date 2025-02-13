@@ -261,7 +261,8 @@ process SAMPLE_SUMMARY {
 
     script:
     """
-    sample_summary.R "*.csv" $workflow.runName
+    gitcommit=\$(cat $workflow.projectDir/.git/logs/HEAD  | cut -f2 -d " " | tail -1 | cut -c-7)
+    sample_summary.R "*.csv" $workflow.runName \$gitcommit
     """
 }
 
