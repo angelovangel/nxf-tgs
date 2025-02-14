@@ -9,7 +9,7 @@
 library(vroom)
 library(dplyr)
 library(DT)
-#library(reactable)
+library(stringr)
 #library(htmlwidgets)
 
 arg <- commandArgs(trailingOnly = T)
@@ -17,7 +17,8 @@ csvfiles <- list.files(pattern = arg[1], full.names = T)
 
 df <- vroom(file = csvfiles) %>% 
   mutate(
-    diff = abs(log2(obs_size / user_size))
+    diff = abs(log2(obs_size / user_size)),
+    status = str_replace_na(status, "Failed due to insufficient reads")
   )
 #df
 # finaltable <- 
