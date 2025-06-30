@@ -29,14 +29,14 @@ faster_qscore <- function(x, saveraw = FALSE) {
   require(data.table)
   
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
-  density_obj <- system2("faster2", args = c("--qual", x), stdout = TRUE) %>%
-    as.numeric() %>%
+  q <- system2("faster2", args = c("--qual", x), stdout = TRUE) %>% as.numeric()
+  q <- q[q > 1 & q < 60]
     # actually use density() here, not hist(). It returns a density list object with x and y, x is fixed from 1 to 50
-    density(from = 1, to = 60, n = 60, na.rm = TRUE) # n is the number of equally spaced points at which the density is to be estimated.
-  #
+    #density(from = 1, to = 60, n = 60, na.rm = TRUE) # n is the number of equally spaced points at which the density is to be estimated.
+  density_obj <- hist(q, breaks = seq(1, 60), plot = FALSE)
   if(isTRUE(saveraw)) {
     #if(!dir.exists("rawdata")) {dir.create("rawdata")}
-    data.table::fwrite(data.frame(x = density_obj$x, y = density_obj$y), 
+    data.table::fwrite(data.frame(x = density_obj$mids, y = density_obj$counts), 
                        file = paste0("rawdata/", "faster_qscore", "-", samplename, ".tsv"), 
                        sep = "\t")
     }
@@ -50,7 +50,6 @@ faster_len <- function(x, saveraw = FALSE) {
   
   lens <- system2("faster2", args = c("--len", x), stdout = TRUE) %>% as.numeric()
   lens[lens >= 50000] <- 50000 # all bigger than 50k are set to 50k
-    
   density_obj <- lens[lens > 1 & lens <= 50000] %>%
     hist(breaks = seq(1, 50000, length.out = 61), plot = FALSE) # x = breaks or mids, y = counts
     #log10() %>%
@@ -89,12 +88,12 @@ duplevel <- function(x, saveraw = FALSE) {
   
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   #faster -l x | sort -n | head -n 1
-  faster_out <- system2("faster2", args = c("-t", x), stdout = TRUE)
+  faster_out <- system2("faster", args = c("-t", x), stdout = TRUE)
   max_len <- read.table(text = faster_out, header = T)$max_len
   if (max_len > 610) {
     stop(paste("max read length is", max_len, "and you selected Illumina, which can be maximum 610"))
   }
-  fastkmers_out <- system2("fastkmers", args = c("-k", as.numeric(max_len - 1), "-v", "-f", x), stdout = T)
+  fastkmers_out <- system2("fastkmers", args = c("-k", as.numeric(max_len)-1, "-v", "-f", x), stdout = T)
   duplevel_tbl <- read.table(text = fastkmers_out, sep = "\t", header = T) %>%
     dplyr::arrange(occ) %>%
     dplyr::mutate(percent = round(count/sum(count), 4)*100) %>%
@@ -115,7 +114,7 @@ content_percycle <- function(x, saveraw = FALSE) {
   
   samplename <- basename(tools::file_path_sans_ext(x, compression = T))
   
-  faster_out <- system2("faster2", args = c("-t", x), stdout = TRUE)
+  faster_out <- system2("faster", args = c("-t", x), stdout = TRUE)
   max_len <- read.table(text = faster_out, header = T)$max_len
   if (max_len > 610) {
     stop(paste("max read length is", max_len, "and you selected Illumina, which can be maximum 610"))
