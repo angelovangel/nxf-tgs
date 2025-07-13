@@ -364,7 +364,9 @@ log_formatter <- htmlwidgets::JS(sprintf("function(x){ return Math.round(Math.po
 spark_len <- function(len_density_obj) {
   bases_over_len <- len_density_obj$counts * len_density_obj$mids
   bases_total <- sum(bases_over_len)
+  reads_total <- sum(len_density_obj$counts)
   percent_bases_over_len <- round(bases_over_len / bases_total * 100, 0)
+  percent_reads_over_len <- round(len_density_obj$counts / reads_total * 100, 0)
   spk_chr(
     # cumulative bases over length
     # sum(len_density_obj$mids * len_density_obj$counts) - cumsum(len_density_obj$mids * len_density_obj$counts) 
@@ -374,8 +376,15 @@ spark_len <- function(len_density_obj) {
     width = 220,
     height = 40,
     tooltipFormatter = spk_tool(
-      "length ", si(len_density_obj$mids, acc = 0.1),
-      paste0(si(x = len_density_obj$counts, acc = 0.1), " reads (", percent_bases_over_len, "% of bases)")
+      "length ", 
+      paste0(si(len_density_obj$breaks, acc = 0.1),":", si(len_density_obj$breaks + len_density_obj$breaks[2], acc = 0.1)),
+      paste0(
+        si(x = len_density_obj$counts, acc = 1), 
+        " reads (", percent_reads_over_len, "%), ", 
+        si(x = bases_over_len, acc = 1), 
+        " bases (", percent_bases_over_len, "%)"
+      )
+      
       #formatC(bases_over_len, big.mark = ",", mode = "integer")
       #paste0("bases: ", si(bases_over_len))
     )
@@ -577,8 +586,14 @@ if (params$sequencer != "Illumina") {
 
 table2_caption <- ifelse(
   params$sequencer != "Illumina",
-  "Density distributions of GC-content, 'mean' q-score, length and k-mer counts. Lengths > 50 kb are binned to 50 kb.",
-  "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts."
+  paste0(
+    "Density distributions of GC-content, 'mean' q-score, length and k-mer counts. Lengths > 50 kb are binned to 50 kb. ",
+    params$subsample * 100, "% of reads used for calculations."
+  ),
+  paste0(
+    "GC-content, base content per cycle, 'mean' q-score, q-score per cycle, duplication rate and k-mer counts. ",
+    params$subsample * 100, "% of reads used for calculations."
+  )
 )
 
 tags$p(
