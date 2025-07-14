@@ -377,8 +377,9 @@ spark_len <- function(len_density_obj) {
     height = 40,
     tooltipFormatter = spk_tool(
       "length ", 
-      paste0(si(len_density_obj$breaks, acc = 0.1),":", si(len_density_obj$breaks + len_density_obj$breaks[2], acc = 0.1)),
+      paste0(si(len_density_obj$breaks, acc = 0.1)," to ", si(len_density_obj$breaks + len_density_obj$breaks[2], acc = 0.1)),
       paste0(
+        "<br>",
         si(x = len_density_obj$counts, acc = 1), 
         " reads (", percent_reads_over_len, "%), ", 
         si(x = bases_over_len, acc = 1), 
