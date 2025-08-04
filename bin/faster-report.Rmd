@@ -223,7 +223,7 @@ if (any(df$reads < 10)) {
   checkpoint <- TRUE
 }
 
-shiny::tags$p(
+htmltools::tags$p(
   style = 'color: #7f8c8d;',
   'Table 1. FASTQ quality metrics'
 )
@@ -232,10 +232,10 @@ shiny::tags$p(
 tagList(
   div(
     style = "margin-bottom: 0.75rem",
-    shiny::tags$button(
+    htmltools::tags$button(
       'Download as CSV', onclick = "Reactable.downloadDataCSV(tableId = 'table1', filename = 'faster-report.csv')"
     ),
-    shiny::tags$input(
+    htmltools::tags$input(
         type = "text",
         placeholder = "Search...",
         style = "padding: 0.25rem 0.5rem;",
@@ -244,10 +244,10 @@ tagList(
         #reads: ['1', '2', this.value]
         #})"
       )
-    #shiny::tags$select(id = 'custom-numbers', lapply(c('No formatting', 'Thousand separator', 'SI units'), shiny::tags$option))
+    #htmltools::tags$select(id = 'custom-numbers', lapply(c('No formatting', 'Thousand separator', 'SI units'), htmltools::tags$option))
   ),
   
-  #shiny::tags$hr("aria-hidden" = "true"),
+  #htmltools::tags$hr("aria-hidden" = "true"),
   
   reactable::reactable(
     df,
