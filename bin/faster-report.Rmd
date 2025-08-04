@@ -85,19 +85,19 @@ knitr::opts_chunk$set(
 #=== System requirements ===============================#
 
 #require(seqTools)
-require(stringr)
-require(bslib)
-require(bsicons)
-require(knitr)
-require(shiny)
-require(scales)
-require(reactable)
-require(dplyr)
-require(sparkline)
-require(htmlwidgets)
-require(jsonlite)
-require(parallel) # may be ships with R, so not in the environment.yml
-require(parallelMap)
+library(stringr)
+library(bslib)
+library(bsicons)
+library(knitr)
+library(shiny)
+library(scales)
+library(reactable)
+library(dplyr)
+library(sparkline)
+library(htmlwidgets)
+library(jsonlite)
+library(parallel) # may be ships with R, so not in the environment.yml
+library(parallelMap)
 
 # important to use the sourced functions in parallel effectively
 # https://stackoverflow.com/questions/16028671/why-does-sourcing-a-script-within-rs-parallel-functions-fail
