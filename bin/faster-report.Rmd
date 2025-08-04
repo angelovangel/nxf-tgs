@@ -229,8 +229,8 @@ htmltools::tags$p(
 )
 
 # use reactable to enable sorting
-tagList(
-  div(
+htmltools::tagList(
+  htmltools::div(
     style = "margin-bottom: 0.75rem",
     htmltools::tags$button(
       'Download as CSV', onclick = "Reactable.downloadDataCSV(tableId = 'table1', filename = 'faster-report.csv')"
