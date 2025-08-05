@@ -357,9 +357,8 @@ process MAPPING_SUMMARY {
 }
 
 process IGV_REPORTS {
-    container 'docker.io/aangeloo/nxf-tgs:latest'
-    // https://training.nextflow.io/basic_training/debugging/#dynamic-resources-allocation
-    //errorStrategy { task.exitStatus == 1 ? 'retry' : 'ignore' }
+    //container 'docker.io/aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/igv-reports-image:latest'
     errorStrategy 'ignore'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/04-igv-reports", mode: 'copy'
@@ -372,7 +371,10 @@ process IGV_REPORTS {
 
     script:
     """
-    len=\$(faster2 -l ${fasta[0]})
+    # len=\$(faster2 -l ${fasta[0]})
+    samtools faidx ${fasta[0]}
+    len=\$(awk '{print \$2}' ${fasta[0]}.fai | head -n 1)
+
     header=\$(grep ">" ${fasta[0]} | cut -c 2-)
     # dynamic calculation for subsampling, subsample for > 500 alignments
     count=\$(samtools view -c ${mapping[0]})
