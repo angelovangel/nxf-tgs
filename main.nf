@@ -197,6 +197,9 @@ process ASSEMBLY {
     script:
     def assembly_args = params.assembly_args ?: ''
     """
+    # do this in this shell
+    export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache" "
+
     nextflow run epi2me-labs/${params.pipeline} \
         --fastq $fastq_pass \
         --sample_sheet $samplesheet \
