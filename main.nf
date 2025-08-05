@@ -12,11 +12,12 @@ def helpMessage() {
     ========================================================================================================================
     Usage:
     -----------------------------------
-    fastq         : path to raw fastq_pass data
-    samplesheet   : path to csv or excel with (at least) columns sample, barcode, user
-    pipeline      : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
-    assembly_args : additional command-line arguments passed to the assembly workflow
-    outdir        : where to save results, default is 'output'
+    fastq            : path to raw fastq_pass data
+    samplesheet      : path to csv or excel with (at least) columns sample, barcode, user
+    pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
+    assembly_args    : additional command-line arguments passed to the assembly workflow
+    assembly_profile : profile to use for the assembly workflow, default is 'standard'
+    outdir           : where to save results, default is 'output'
     """
     .stripIndent(true)
 }
@@ -30,6 +31,7 @@ log.info """\
     samplesheet     : ${params.samplesheet}
     pipeline        : ${params.pipeline}
     assembly_args   : ${params.assembly_args}
+    assembly_profile: ${params.assembly_profile}
     outdir          : ${params.outdir}
     """
     .stripIndent(true)
@@ -200,7 +202,8 @@ process ASSEMBLY {
         --sample_sheet $samplesheet \
         --out_dir '02-assembly' \
         ${assembly_args} \
-        -r $ver
+        -r $ver \
+        -profile ${params.assembly_profile}
         
     # fix annotations.bed
     # this has to be moved out in IGV process to be able to run in docker because of the R libraries. Or use base R!
