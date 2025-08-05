@@ -43,7 +43,7 @@ wf_ver = Channel.from(params.pipeline).join(wf_versions)
 // emits *-checked.csv if all ok, exits with error if not
 // also add observed peak size (as seen by fasterplot)
 process VALIDATE_SAMPLESHEET {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     publishDir "$params.outdir", mode: 'copy', pattern: '00-samplesheet-validated.csv'
 
     input: 
@@ -67,7 +67,7 @@ process VALIDATE_SAMPLESHEET {
 }
 
 process READEXCEL {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
 
     input:
     path(excelfile)
@@ -82,7 +82,7 @@ process READEXCEL {
 }
 
 process MERGE_READS {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
     errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
@@ -104,7 +104,7 @@ process MERGE_READS {
 }
 
 process REPORT {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
     //publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.tsv'
 
@@ -123,7 +123,7 @@ process REPORT {
 }
 
 process HTMLREPORT {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
     errorStrategy 'retry'
     maxRetries 3
@@ -219,7 +219,7 @@ process ASSEMBLY {
 }
 
 process SAMPLE_STATUS {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
     errorStrategy 'ignore'
 
@@ -249,7 +249,7 @@ process SAMPLE_STATUS {
 
 // https://www.nextflow.io/docs/latest/process.html#multiple-input-files
 process SAMPLE_SUMMARY {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     errorStrategy 'ignore'
     publishDir "$params.outdir", mode: "copy", pattern: "*.html"
 
@@ -267,7 +267,7 @@ process SAMPLE_SUMMARY {
 }
 
 process MAPPING {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $sample"
     publishDir "$params.outdir/$user/03-mapping", mode: 'copy'
 
@@ -315,7 +315,7 @@ process MAPPING {
 }
 
 process MAPPING_COUNTS {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
     publishDir(
         "$params.outdir/$user", 
@@ -337,7 +337,7 @@ process MAPPING_COUNTS {
 }
 
 process MAPPING_SUMMARY {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     publishDir "$params.outdir", mode: 'copy'
 
     input:
@@ -354,7 +354,7 @@ process MAPPING_SUMMARY {
 }
 
 process IGV_REPORTS {
-    container 'aangeloo/nxf-tgs:latest'
+    container 'docker.io/aangeloo/nxf-tgs:latest'
     // https://training.nextflow.io/basic_training/debugging/#dynamic-resources-allocation
     //errorStrategy { task.exitStatus == 1 ? 'retry' : 'ignore' }
     errorStrategy 'ignore'
