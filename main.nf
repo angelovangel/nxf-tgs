@@ -197,7 +197,7 @@ process ASSEMBLY {
     script:
     def assembly_args = params.assembly_args ?: ''
     """
-    # do this in this shell, or seti it up in the calling shell
+    # do this in this shell, or better set it up in the calling shell!
     # export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
 
     nextflow run epi2me-labs/${params.pipeline} \
