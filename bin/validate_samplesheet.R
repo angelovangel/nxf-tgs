@@ -28,11 +28,11 @@ df <- readr::read_delim(arg[1], col_names = T, trim_ws = T) %>%
 
 # CHECKS #####################################################
 # colnames contain 'user', 'sample', 'barcode'
-if (!all( c('user', 'sample', 'barcode') %in% colnames(df) )) {
+if (!all( c('user', 'sample', 'barcode', 'dna_size') %in% colnames(df) )) {
   stop(
     paste0(
       '\n--------------------------------------\n',
-      '\nSamplesheet must contain columns user,sample,barcode\n',
+      '\nSamplesheet must contain columns user,sample,barcode,dna_size\n',
       '\nThe provided samplesheet has columns:\n',
       str_flatten(colnames(df), collapse = ", "),
       '\n--------------------------------------\n'
@@ -43,9 +43,36 @@ if (!all( c('user', 'sample', 'barcode') %in% colnames(df) )) {
 # remove rows where sample, user or barcode is NA
 df <- df[complete.cases(df[ ,c('sample', 'user', 'barcode')]), ]
 
-# remove white space first
+# remove white space first, to lower
 df$sample <- str_replace_all(df$sample, " ", "")
 df$user <- str_replace_all(df$user, " ", "")
+df$user <- str_to_lower(df$user)
+
+# username not valid
+# special characters in username
+un_vector <- str_detect(df$user, '^[a-zA-Z0-9\\_\\-]+$')
+if (!all(un_vector)) {
+  stop(
+    paste0(
+      '\nUsernames with special characters:',
+      '\n--------------------------------------\n',
+      print_and_capture( df[!un_vector, ] ),
+      '\n--------------------------------------\n'
+    )
+  )
+}
+
+# dna_size is numeric
+if (!all(is.numeric(df$dna_size))) {
+  stop(
+    paste0(
+      '\nColumn dna_size must be numeric',
+      '\n--------------------------------------\n',
+      print_and_capture(paste0("dna_size column type: ", typeof(df$dna_size)) ),
+      '\n--------------------------------------\n'
+    )
+  )
+}
 
 # barcode unique
 # get indices of duplicates:) stupid R

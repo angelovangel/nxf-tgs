@@ -13,7 +13,7 @@ def helpMessage() {
     Usage:
     -----------------------------------
     fastq            : path to raw fastq_pass data
-    samplesheet      : path to csv or excel with (at least) columns sample, barcode, user
+    samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
     assembly_profile : profile to use for the assembly workflow, default is 'standard'

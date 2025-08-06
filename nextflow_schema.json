@@ -27,7 +27,7 @@
           "fa_icon": "fas fa-vials",
           "mimetype": "csv/xlsx",
           "description": "Path to samplesheet file (.csv or .xlsx)",
-          "help_text": "Samplesheet file must contain as a minimum columns 'user', 'sample', 'barcode' in any order. Other columns are allowed."
+          "help_text": "Samplesheet file must contain as a minimum columns 'user', 'sample', 'barcode', 'dna_size' in any order. Other columns are allowed."
         },
         "outdir": {
           "type": "string",
