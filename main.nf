@@ -41,6 +41,9 @@ samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExist
 wf_versions = Channel.from(['wf-clone-validation', 'v1.8.0'], ['wf-amplicon', 'v1.1.4'], ['wf-bacterial-genomes', 'v1.4.1'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
+// Create a channel for the static asset
+reference_ch = Channel.fromPath( "${projectDir}/assets/mg1655.fasta", checkIfExists: true )
+
 // takes in csv, checks for duplicate barcodes, unique sample names per user
 // emits *-checked.csv if all ok, exits with error if not
 // also add observed peak size (as seen by fasterplot)
@@ -280,6 +283,7 @@ process MAPPING {
     //[user, sample, [final.fasta, annotations.bed], fastq.gz]
     input:
     tuple val(user), val(sample), path(finalfasta), path(fastq)
+    path mg1655
 
     output:
     path "*.{bam,bai,tsv}"
@@ -287,7 +291,7 @@ process MAPPING {
     tuple val(user), path("*mapping-counts.txt"), emit: mapping_counts_ch//, optional: true
 
     script:
-    def mg1655 = file("${projectDir}/assets/mg1655.fasta")
+    //def mg1655 = file("${projectDir}/assets/mg1655.fasta")
     """
     minimap2 -ax lr:hq ${finalfasta[0]} $fastq > mapping.sam
 
@@ -497,7 +501,7 @@ workflow {
         .collect()
         | SAMPLE_SUMMARY
 
-        MAPPING(mapping_ch)
+        MAPPING(mapping_ch, reference_ch)
         
         MAPPING.out.bam_ch
         .join( mapping_ch, by: [0,1] )
