@@ -42,7 +42,9 @@ wf_versions = Channel.from(['wf-clone-validation', 'v1.8.0'], ['wf-amplicon', 'v
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // Create a channel for the static asset
-reference_ch = Channel.fromPath( "${projectDir}/assets/mg1655.fasta", checkIfExists: true )
+//reference_ch = Channel.fromPath( "${projectDir}/assets/mg1655.fasta", checkIfExists: true )
+// has to be a value channel
+reference_ch = Channel.value( file( "${projectDir}/assets/mg1655.fasta" ) )
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
 // emits *-checked.csv if all ok, exits with error if not
@@ -500,7 +502,7 @@ workflow {
         SAMPLE_STATUS.out.merged_sample_status_ch
         .collect()
         | SAMPLE_SUMMARY
-
+        
         MAPPING(mapping_ch, reference_ch)
         
         MAPPING.out.bam_ch
