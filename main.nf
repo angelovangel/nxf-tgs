@@ -18,6 +18,8 @@ def helpMessage() {
     assembly_args    : additional command-line arguments passed to the assembly workflow
     assembly_profile : profile to use for the assembly workflow, default is 'standard'
     outdir           : where to save results, default is 'output'
+    nxf_ver          : nextflow version to use for the internal nextflow run, default is 24.04.2
+    -----------------------------------
     """
     .stripIndent(true)
 }
@@ -33,6 +35,8 @@ log.info """\
     assembly_args   : ${params.assembly_args}
     assembly_profile: ${params.assembly_profile}
     outdir          : ${params.outdir}
+    nxf_ver         : ${params.nxf_ver}
+    -----------------------------------------------------------------------------------------------------------------------
     """
     .stripIndent(true)
 
@@ -205,7 +209,7 @@ process ASSEMBLY {
     # do this in this shell, or better set it up in the calling shell!
     # export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
 
-    nextflow run epi2me-labs/${params.pipeline} \
+    NXF_VER=${params.nxf_ver} nextflow run epi2me-labs/${params.pipeline} \
         --fastq $fastq_pass \
         --sample_sheet $samplesheet \
         --out_dir '02-assembly' \

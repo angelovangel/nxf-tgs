@@ -64,6 +64,13 @@
           "help_text": "Additional command-line arguments passed to the assembly workflow. Pass these as strings '--param1 value --param2 value'... ",
           "fa_icon": "fas fa-angle-right"
         },
+        "nxf_ver": {
+          "type": "string",
+          "description": "Nextflow version to use for the internal nextflow run",
+          "fa_icon": "fas fa-code-branch",
+          "default": "24.10.9",
+          "help_text": "Nextflow version to use for the internal nextflow run that runs the epi2me-labs workflow. Default is 24.10.9 (v25.x.x is not supported by epi2me-labs)."
+        },
         "help": {
           "type": "boolean",
           "description": "Display help text.",
