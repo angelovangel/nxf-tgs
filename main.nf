@@ -19,6 +19,7 @@ def helpMessage() {
     assembly_profile : profile to use for the assembly workflow, default is 'standard'
     outdir           : where to save results, default is 'output'
     nxf_ver          : nextflow version to use for the internal nextflow run, default is 24.04.2
+    cpus             : number of cpus to use, default is 4 (this is the executor local total cpus, also passed to assembly workflow! - minimum is 4) 
     -----------------------------------
     """
     .stripIndent(true)
@@ -36,6 +37,7 @@ log.info """\
     assembly_profile: ${params.assembly_profile}
     outdir          : ${params.outdir}
     nxf_ver         : ${params.nxf_ver}
+    cpus            : ${params.cpus}
     -----------------------------------------------------------------------------------------------------------------------
     """
     .stripIndent(true)
@@ -208,12 +210,18 @@ process ASSEMBLY {
     """
     # do this in this shell, or better set it up in the calling shell!
     # export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
+    
+    echo "executor {
+      name = 'local'
+      cpus = ${params.cpus}
+    }" > child.config
 
     NXF_VER=${params.nxf_ver} nextflow run epi2me-labs/${params.pipeline} \
         --fastq $fastq_pass \
         --sample_sheet $samplesheet \
         --out_dir '02-assembly' \
         ${assembly_args} \
+        -c child.config \
         -r $ver \
         -profile ${params.assembly_profile}
         
