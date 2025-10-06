@@ -16,6 +16,7 @@ tsvfiles <- list.files(path = ".", pattern = "*.assembly_stats.tsv", full.names 
 df1 <- vroom(
   arg[2], 
   col_names = c('sample', 'pass_fail', 'length'), 
+  delim = ",", skip = 1,
   trim_ws = T, na = 'N/A'
   ) #! sample_status.txt
 
