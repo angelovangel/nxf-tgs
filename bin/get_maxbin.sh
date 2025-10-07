@@ -5,15 +5,46 @@
 # arg2 is path to fastq_pass
 # output is csv supplemented with maxbin [integer]
 
-barcode_idx=$(head -1 $1 | sed 's/,/\n/g' | nl | grep 'barcode' | cut -f 1)
+INPUT_FILE="$1"
+FASTQ_DIR="$2"
+OUTPUT_FILE="00-samplesheet-validated.csv"
 
-echo "$(head -n 1 $1),obs_size" > 00-samplesheet-validated.csv
+# 1. Check if 'obs_size' column already exists
+HEADER=$(head -n 1 "$INPUT_FILE")
+if echo "$HEADER" | grep -q '\bobs_size\b'; then
+    # If 'obs_size' is present, just return the filename 
+    echo "The column 'obs_size' is already present in the input file."
+    # We copy the original file to the output name, assuming it's the valid one.
+    cp "$INPUT_FILE" "$OUTPUT_FILE"
+    exit 0
+fi
 
+# If 'obs_size' is NOT present, proceed with calculation and addition
+
+# 2. Find the index of the 'barcode' column
+barcode_idx=$(echo "$HEADER" | sed 's/,/\n/g' | nl | grep 'barcode' | awk '{print $1}')
+
+# 3. Create the new header for the output file
+echo "$HEADER,obs_size" > "$OUTPUT_FILE"
+
+# 4. Process data rows
+# Read data rows (tail -n +2) and process them
 while IFS="," read line; do
-    barcode=$(echo $line | cut -f $barcode_idx -d,)
-    obs_size=$(cat $2/$barcode/*.fastq.gz | seqkit seq -M 49499 -g | fasterplot -l - |  grep "# maxbin:" | cut -f2 )
     
-    echo -e "$line,$obs_size" >> 00-samplesheet-validated.csv
+    # Extract the barcode using the determined index
+    barcode=$(echo "$line" | cut -f "$barcode_idx" -d,)
+    
+    # Calculate obs_size (maxbin)
+    obs_size=$(cat "$FASTQ_DIR/$barcode"/*.fastq.gz | \
+               seqkit seq -M 49499 -g | \
+               fasterplot -l - | \
+               grep "# maxbin:" | \
+               cut -f2 | \
+               tr -d ' ') # Remove potential leading/trailing spaces
+    
+    # Append the original line and the calculated obs_size to the output file
+    echo "$line,$obs_size" >> "$OUTPUT_FILE"
 
+done < <(tail -n +2 "$INPUT_FILE")
 
-done < <(tail -n +2 $1)
+echo "Successfully generated $OUTPUT_FILE with the new 'obs_size' column."
