@@ -24,10 +24,10 @@ df <-
     sample = str_remove(basename(sample), "-mapping-counts.txt")) %>%
   mutate(
     percent_assembly = assembly/allreads*100, 
-    percent_coli = NC_000913.3/allreads*100, 
-    percent_nonmapping = (allreads - (assembly+NC_000913.3))/allreads*100
+    percent_coli = if ("NC_000913.3" %in% names(.)) {NC_000913.3/allreads*100} else {0}, 
+    percent_nonmapping = 100 - (percent_assembly + percent_coli)
     ) %>%
-  dplyr::select(-c('assembly', 'NC_000913.3'))
+  dplyr::select(c('user', 'sample', 'allreads', 'percent_assembly', 'percent_coli', 'percent_nonmapping'))
   
 df %>%
   dplyr::relocate('user') %>%
