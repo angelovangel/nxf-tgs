@@ -470,11 +470,14 @@ workflow merge_reads {
     | MERGE_READS 
 }
 
+// check this for potential mixup of users and samples
 workflow report {
     prep_samplesheet().prepped_samplesheet_ch \
     | MERGE_READS \
     | groupTuple \
-    | (REPORT & HTMLREPORT)
+    | HTMLREPORT
+    //| view()
+    //| (REPORT & HTMLREPORT) //REPORT not actually needed
 
     emit:
     fastq_ch = MERGE_READS.out.merged_fastq_ch
