@@ -113,6 +113,8 @@ process MERGE_READS {
 
     find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
     cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${samplename}.fastq.gz
+    #cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${user}-${samplename}.fastq.gz
+    
     """
 }
 
@@ -474,10 +476,10 @@ workflow merge_reads {
 workflow report {
     prep_samplesheet().prepped_samplesheet_ch \
     | MERGE_READS \
-    | groupTuple \
+    | groupTuple(by: 0) \
     | HTMLREPORT
     //| view()
-    //| (REPORT & HTMLREPORT) //REPORT not actually needed
+    //| (REPORT & HTMLREPORT)
 
     emit:
     fastq_ch = MERGE_READS.out.merged_fastq_ch
