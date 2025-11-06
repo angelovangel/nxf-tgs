@@ -140,6 +140,7 @@ process REPORT {
 process HTMLREPORT {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
+    maxForks 1 // This ensures sequential execution for this process, to prevent faster-report.knit.md which is in the script dir to be mixed up
     errorStrategy 'retry'
     maxRetries 3
     publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
