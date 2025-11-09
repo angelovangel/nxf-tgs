@@ -54,7 +54,7 @@ reference_ch = Channel.value( file( "${projectDir}/assets/mg1655.fasta" ) )
 
 // takes in csv, checks for duplicate barcodes, unique sample names per user
 // emits *-checked.csv if all ok, exits with error if not
-// also add observed peak size (as seen by fasterplot)
+// also add observed peak size (as seen by fasterplot) and nreads per barcode if plasmid workflow
 process VALIDATE_SAMPLESHEET {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     publishDir "$params.outdir", mode: 'copy', pattern: '00-samplesheet-validated.csv'

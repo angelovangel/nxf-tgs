@@ -3,7 +3,7 @@
 # requires fasterplot to be installed and in env
 # arg1 is path to csv file with user,sample,barcode,dna_size
 # arg2 is path to fastq_pass
-# output is csv supplemented with maxbin [integer]
+# output is csv supplemented with maxbin [integer] and nreads [integer]
 
 INPUT_FILE="$1"
 FASTQ_DIR="$2"
@@ -25,7 +25,7 @@ fi
 barcode_idx=$(echo "$HEADER" | sed 's/,/\n/g' | nl | grep 'barcode' | awk '{print $1}')
 
 # 3. Create the new header for the output file
-echo "$HEADER,obs_size" > "$OUTPUT_FILE"
+echo "$HEADER,obs_size,nreads" > "$OUTPUT_FILE"
 
 # 4. Process data rows
 # Read data rows (tail -n +2) and process them
@@ -41,9 +41,10 @@ while IFS="," read line; do
                grep "# maxbin:" | \
                cut -f2 | \
                tr -d ' ') # Remove potential leading/trailing spaces
+    nreads=$(cat "$FASTQ_DIR/$barcode"/*.fastq.gz | faster2 -ts - | cut -f 2 | tr -d ' ')
     
     # Append the original line and the calculated obs_size to the output file
-    echo "$line,$obs_size" >> "$OUTPUT_FILE"
+    echo "$line,$obs_size,$nreads" >> "$OUTPUT_FILE"
 
 done < <(tail -n +2 "$INPUT_FILE")
 
