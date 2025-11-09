@@ -82,9 +82,9 @@ finaltable <-
     )
   ) %>% 
 # style user_size based on diff
-DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#004700', '#f5b041', '#e74c3c'))) %>%
-DT::formatStyle('nreads', color = styleInterval(c(200, 500), c('#e74c3c', '#f5b041', '#004700'))) %>%
-DT::formatRound('assembly_quality', 2) %>%
-DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#004700')))
+DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#228B22', '#f5b041', '#e74c3c'))) %>%
+DT::formatStyle('nreads', color = styleInterval(c(200, 500), c('#e74c3c', '#f5b041', '#228B22'))) %>%
+DT::formatRound('assembly_quality', 0) %>%
+DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#228B22')))
 
 DT::saveWidget(finaltable, file = '00-sample-status-summary.html', title = "sample-status-summary")
