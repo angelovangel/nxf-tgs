@@ -188,7 +188,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{fasta,fastq,gbk}" //wf html report is handled separately
+        pattern: "02-assembly/**{fasta,fai,fastq,gbk,bam,bai,flye_stats.tsv}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
