@@ -188,7 +188,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{txt,fasta,fai,fastq,gbk,bam,bai,json,annotations.bed}" //wf html report is handled separately
+        pattern: "02-assembly/**{fasta,fastq,gbk}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -295,7 +295,7 @@ process SAMPLE_SUMMARY {
 process MAPPING {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $sample"
-    publishDir "$params.outdir/$user/03-mapping", mode: 'copy'
+    publishDir "$params.outdir/$user/03-mapping", mode: 'copy', pattern: "*.{bam,bai}"
 
     //[user, sample, [final.fasta, annotations.bed], fastq.gz]
     input:
