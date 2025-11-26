@@ -44,7 +44,7 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExists: true)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.8.0'], ['wf-amplicon', 'v1.1.4'], ['wf-bacterial-genomes', 'v1.4.1'])
+wf_versions = Channel.from(['wf-clone-validation', 'v1.8.3'], ['wf-amplicon', 'v1.2.0'], ['wf-bacterial-genomes', 'v1.4.6'])
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // Create a channel for the static asset
@@ -183,7 +183,7 @@ process HTMLREPORT {
 
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
-    tag "$user"
+    tag "$user - ${params.pipeline} $ver"
     errorStrategy 'retry'
     publishDir (
         "$params.outdir/$user", 

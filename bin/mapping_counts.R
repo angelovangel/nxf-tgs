@@ -16,7 +16,7 @@ countsfiles <- list.files(pattern = arg[1], full.names = T)
 # do not use vroom directly for it fails if the files have different number of columns, for example when no reads map to coli
 
 df <- 
-  lapply(countsfiles, vroom, id = 'sample', show_col_types = F) %>% 
+  lapply(countsfiles, vroom, id = 'sample', show_col_types = F, delim = ' ') %>% 
   bind_rows() %>%
   #vroom(countsfiles, id = 'sample') %>% 
   mutate(
