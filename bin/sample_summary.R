@@ -15,7 +15,7 @@ library(stringr)
 arg <- commandArgs(trailingOnly = T)
 csvfiles <- list.files(pattern = arg[1], full.names = T)
 
-df <- vroom(file = csvfiles) %>% 
+df <- vroom(file = csvfiles, delim = ",") %>% 
   mutate(
     diff = abs(log2(obs_size / user_size)),
     status = str_replace_na(status, "Failed due to insufficient reads")
@@ -70,7 +70,7 @@ finaltable <-
       searchPanes = list(show = FALSE, cascadePanes = TRUE),
       columnDefs = list(
         list(
-          searchPanes = list(show = FALSE), targets = c(1:3, 5:9)
+          searchPanes = list(show = FALSE), targets = c(1:3, 5:10)
         ),
         list(
           searchPanes = list(show = TRUE), targets = c(0,4) 
