@@ -70,7 +70,7 @@ process VALIDATE_SAMPLESHEET {
     """
     validate_samplesheet.R $csv $fastq_pass
     
-    if [ ${params.pipeline} == 'wf-clone-validation' ]; then
+    if [ ${params.pipeline} != 'wf-bacterial-genome' ]; then
         get_maxbin.sh samplesheet-validated.csv $fastq_pass
     else
         mv samplesheet-validated.csv 00-samplesheet-validated.csv
