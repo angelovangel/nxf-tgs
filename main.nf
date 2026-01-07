@@ -212,7 +212,7 @@ process ASSEMBLY {
     def assembly_args = params.assembly_args ?: ''
     """
     # do this in this shell, or better set it up in the calling shell!
-    # export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
+    export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
     
     echo "executor {
       name = 'local'
