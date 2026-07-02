@@ -5,14 +5,45 @@ def writePipelineLog() {
 
     def logFile = new File(outdir, 'pipeline.log')
     def cmdLine = workflow.commandLine ?: 'N/A'
+    def hostname = java.net.InetAddress.localHost.hostName ?: 'unknown'
+    def osName = System.getProperty('os.name') ?: 'unknown'
+    def osVersion = System.getProperty('os.version') ?: 'unknown'
+    def osArch = System.getProperty('os.arch') ?: 'unknown'
+    def javaVersion = System.getProperty('java.version') ?: 'unknown'
+    def processors = Runtime.runtime.availableProcessors()
     def lines = []
-    lines << "timestamp: ${new java.util.Date()}"
-    lines << "command_line: ${cmdLine}"
-    lines << "params:"
+
+    lines << "============================================================"
+    lines << "NXF-TGS PIPELINE RUN ENVIRONMENT"
+    lines << "============================================================"
+    lines << "${new java.util.Date()}"
+    lines << ""
+    lines << "command_line: "
+    lines << "------------------------------------------------------------"
+    lines << "${cmdLine}"
+    lines << ""
+    lines << "machine_info:"
+    lines << "------------------------------------------------------------"
+    lines << "hostname           : ${hostname}"
+    lines << "user               : ${System.getProperty('user.name') ?: 'unknown'}"
+    lines << "available_cores    : ${processors}"
+    lines << "java_version       : ${javaVersion}"
+    lines << ""
+    lines << "os_info:"
+    lines << "------------------------------------------------------------"
+    lines << "name               : ${osName}"
+    lines << "version            : ${osVersion}"
+    lines << "architecture       : ${osArch}"
+    lines << ""
+    lines << "parameters:"
+    lines << "------------------------------------------------------------"
 
     params.keySet().sort().each { key ->
-        lines << "  ${key}=${params[key]}"
+        def value = params[key] != null ? params[key].toString() : 'null'
+        lines << "${key.padRight(18)} : ${value}"
     }
+
+    lines << "------------------------------------------------------------"
 
     logFile.text = lines.join('\n') + '\n'
     log.info "Wrote pipeline metadata to ${logFile}"
