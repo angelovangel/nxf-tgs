@@ -1,4 +1,25 @@
 
+def writePipelineLog() {
+    def outdir = new File(params.outdir ?: 'output')
+    outdir.mkdirs()
+
+    def logFile = new File(outdir, 'pipeline.log')
+    def cmdLine = workflow.commandLine ?: 'N/A'
+    def lines = []
+    lines << "timestamp: ${new java.util.Date()}"
+    lines << "command_line: ${cmdLine}"
+    lines << "params:"
+
+    params.keySet().sort().each { key ->
+        lines << "  ${key}=${params[key]}"
+    }
+
+    logFile.text = lines.join('\n') + '\n'
+    log.info "Wrote pipeline metadata to ${logFile}"
+}
+
+writePipelineLog()
+
 if (params.help) {
     helpMessage()
     exit(0)
@@ -156,9 +177,25 @@ process HTMLREPORT {
     """
     # get run info from fastq header to use in faster-report
     # it is the same for all users
-    FLOWCELL=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "flow_cell_id=.*" | cut -d" " -f1 | cut -d= -f2)
-    RUNDATE=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "start_time=.*" | cut -d" " -f1 | cut -d= -f2 | cut -dT -f1)
-    BC_MODEL=\$(gzip -cd ${fastqpath[0]} | head -n 1 | grep -oE "model_version_id=.*" | cut -d" " -f1 | cut -d= -f2 | cut -dT -f1)
+    HEADER=\$(gzip -cd ${fastqpath[0]} | head -n 1)
+
+    FLOWCELL=\$(printf '%s\n' "\$HEADER" | grep -oE 'PU:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3)
+    if [[ -z "\$FLOWCELL" ]]; then
+        FLOWCELL=\$(printf '%s\n' "\$HEADER" | grep -oE 'flow_cell_id=[^[:space:]]+' | head -n 1 | cut -d= -f2)
+    fi
+
+    RUNDATE=\$(printf '%s\n' "\$HEADER" | grep -oE 'DT:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3 | cut -dT -f1)
+    if [[ -z "\$RUNDATE" ]]; then
+        RUNDATE=\$(printf '%s\n' "\$HEADER" | grep -oE 'start_time=[^[:space:]]+' | head -n 1 | cut -d= -f2 | cut -dT -f1)
+    fi
+
+    BC_MODEL=\$(printf '%s\n' "\$HEADER" | grep -oE 'RG:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3)
+    if [[ -n "\$BC_MODEL" ]]; then
+        BC_MODEL="\${BC_MODEL#*_}"
+        BC_MODEL="\${BC_MODEL%_barcode*}"
+    else
+        BC_MODEL=\$(printf '%s\n' "\$HEADER" | grep -oE 'model_version_id=[^[:space:]]+' | head -n 1 | cut -d= -f2)
+    fi
 
     if [[ -z "\$FLOWCELL" ]]; then
         FLOWCELL="NA"
