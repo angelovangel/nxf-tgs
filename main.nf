@@ -1,4 +1,6 @@
 
+wfVersionMap = ['wf-clone-validation': 'v1.8.4', 'wf-amplicon': 'v1.2.2', 'wf-bacterial-genomes': 'v1.4.6']
+
 def writePipelineLog() {
     def outdir = new File(params.outdir ?: 'output')
     outdir.mkdirs()
@@ -11,6 +13,7 @@ def writePipelineLog() {
     def osArch = System.getProperty('os.arch') ?: 'unknown'
     def javaVersion = System.getProperty('java.version') ?: 'unknown'
     def processors = Runtime.runtime.availableProcessors()
+    def pipelineVersion = wfVersionMap[params.pipeline] ?: 'N/A'
     def lines = []
 
     lines << "============================================================"
@@ -34,6 +37,11 @@ def writePipelineLog() {
     lines << "name               : ${osName}"
     lines << "version            : ${osVersion}"
     lines << "architecture       : ${osArch}"
+    lines << ""
+    lines << "pipeline:"
+    lines << "------------------------------------------------------------"
+    lines << "pipeline           : ${params.pipeline}"
+    lines << "pipeline_version   : ${pipelineVersion}"
     lines << ""
     lines << "parameters:"
     lines << "------------------------------------------------------------"
@@ -68,7 +76,7 @@ def helpMessage() {
     samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
-    assembly_profile : profile to use for the assembly workflow, default is 'standard'
+    assembly_profile : profile to use for the assembly workflow (standard, singularity, test), default is 'standard'
     outdir           : where to save results, default is 'output'
     nxf_ver          : nextflow version to use for the internal nextflow run, default is 24.04.2
     cpus             : number of cpus to use, default is 4 (this is the executor local total cpus, also passed to assembly workflow! - minimum is 4) 
@@ -96,7 +104,7 @@ log.info """\
 
 fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExists: true)
-wf_versions = Channel.from(['wf-clone-validation', 'v1.8.4'], ['wf-amplicon', 'v1.2.0'], ['wf-bacterial-genomes', 'v1.4.6'])
+wf_versions = Channel.from(wfVersionMap.collect { k, v -> [k, v] })
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
 // Create a channel for the static asset
@@ -275,6 +283,7 @@ process ASSEMBLY {
     tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
     tuple val(user), path("02-assembly/sample_status.txt"), optional: true, emit: sample_status_ch
     tuple val(user), path("02-assembly/*.assembly_stats.tsv"), optional: true, emit: assembly_stats_ch
+    tuple val(user), path("02-assembly/amplicon_sample_status.txt"), optional: true, emit: amplicon_status_ch
     
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -309,6 +318,11 @@ process ASSEMBLY {
         touch 02-assembly/empty.assembly_stats.tsv
         echo -e "sample_name\tmean_quality" >> 02-assembly/empty.assembly_stats.tsv
     fi
+
+    # for wf-amplicon: derive pass/fail from all-consensus-seqs.fasta
+    if [ ${params.pipeline} = 'wf-amplicon' ]; then
+        amplicon_sample_status.sh $samplesheet 02-assembly
+    fi
     """
 }
 
@@ -324,18 +338,14 @@ process SAMPLE_STATUS {
         saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
     )
 
-    //
-    // stage assembly_stats.tsv files but don't pass as arguments to the Rscript
+    // sample_status.R finds *.assembly_stats.tsv files in the work dir via glob - no need to pass them explicitly
     input:
-    tuple val(user), path(sample_status), path(samplesheet_validated), path(assembly_stats)
+    tuple val(user), path(sample_status), path(samplesheet_validated)
 
     output:
     path("*.csv"), emit: merged_sample_status_ch
 
     script:
-    // *assembly_stats.tsv is not there for failing samples, if no samples succeed for a user then assembly_stats_ch is not emitted
-    // if remainder = true, then assembly_stats_ch is null
-    
     """
     sample_status.R ${user} ${sample_status} ${samplesheet_validated}
     """
@@ -356,7 +366,7 @@ process SAMPLE_SUMMARY {
     script:
     """
     gitcommit=\$(cat $workflow.projectDir/.git/logs/HEAD  | cut -f2 -d " " | tail -1 | cut -c-7)
-    sample_summary.R "*.csv" $workflow.runName \$gitcommit
+    sample_summary.R "*.csv" $workflow.runName \$gitcommit ${params.pipeline} ${wfVersionMap[params.pipeline] ?: 'N/A'}
     """
 }
 
@@ -581,7 +591,6 @@ workflow {
     if (params.pipeline == 'wf-clone-validation') {
         ASSEMBLY.out.sample_status_ch
         .combine(report.out.validated_samplesheet_ch2)
-        .join(ASSEMBLY.out.assembly_stats_ch, remainder: true)
         //.view()
         | SAMPLE_STATUS
         
@@ -608,5 +617,14 @@ workflow {
         //.view()
         | MAPPING_SUMMARY
 
+    } else if (params.pipeline == 'wf-amplicon') {
+        ASSEMBLY.out.amplicon_status_ch
+        .combine(report.out.validated_samplesheet_ch2)
+        //.view()
+        | SAMPLE_STATUS
+
+        SAMPLE_STATUS.out.merged_sample_status_ch
+        .collect()
+        | SAMPLE_SUMMARY
     }
 }
