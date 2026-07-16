@@ -1,8 +1,8 @@
 blockquote {
-    padding: 10px 20px;
-    margin: 0 0 20px;
-    font-size: 16px;
-    border-left: 5px solid #eee;
+  padding: 10px 20px;
+  margin: 0 0 20px;
+  font-size: 16px;
+  border-left: 5px solid #eee;
 }
 
 .badge {
@@ -10,5 +10,21 @@ blockquote {
   color: black;
   padding: 4px 8px;
   text-align: center;
-  border-radius: 5px;
+  border-radius: 3px;
+}
+
+.meta-table {
+  border: none;
+  border-collapse: collapse;
+}
+
+.meta-label {
+  text-align: right;
+  padding: 1px 6px;
+}
+
+.meta-value {
+  background: #f0f0f0;
+  padding: 1px 8px;
+  border-radius: 3px;
 }
