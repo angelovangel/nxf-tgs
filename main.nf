@@ -340,7 +340,7 @@ process SAMPLE_STATUS {
 
     // sample_status.R finds *.assembly_stats.tsv files in the work dir via glob - no need to pass them explicitly
     input:
-    tuple val(user), path(sample_status), path(samplesheet_validated)
+    tuple val(user), path(sample_status), path(samplesheet_validated), path(assembly_stats)
 
     output:
     path("*.csv"), emit: merged_sample_status_ch
@@ -591,7 +591,10 @@ workflow {
     if (params.pipeline == 'wf-clone-validation') {
         ASSEMBLY.out.sample_status_ch
         .combine(report.out.validated_samplesheet_ch2)
-        //.view()
+        .join(ASSEMBLY.out.assembly_stats_ch, remainder: true)
+        .map { user, sample_status, samplesheet, assembly_stats ->
+            return [user, sample_status, samplesheet, assembly_stats ?: []]
+        }
         | SAMPLE_STATUS
         
         SAMPLE_STATUS.out.merged_sample_status_ch
@@ -606,7 +609,7 @@ workflow {
         //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
         //.view()
         | IGV_REPORTS
-
+        
         MAPPING.out.mapping_counts_ch
         .groupTuple() // group by user
         //.view()
@@ -616,13 +619,15 @@ workflow {
         .collect()
         //.view()
         | MAPPING_SUMMARY
-
+ 
     } else if (params.pipeline == 'wf-amplicon') {
         ASSEMBLY.out.amplicon_status_ch
         .combine(report.out.validated_samplesheet_ch2)
-        //.view()
+        .map { user, amplicon_status, samplesheet ->
+            return [user, amplicon_status, samplesheet, []]
+        }
         | SAMPLE_STATUS
-
+ 
         SAMPLE_STATUS.out.merged_sample_status_ch
         .collect()
         | SAMPLE_SUMMARY
