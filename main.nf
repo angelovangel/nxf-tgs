@@ -1,5 +1,5 @@
 
-wfVersionMap = ['wf-clone-validation': 'v1.8.4', 'wf-amplicon': 'v1.2.2', 'wf-bacterial-genomes': 'v1.4.6']
+wfVersionMap = ['wf-clone-validation': 'v1.8.4', 'wf-amplicon': 'v1.2.2', 'wf-bacterial-genomes': 'v2.0.2']
 
 def writePipelineLog() {
     def outdir = new File(params.outdir ?: 'output')
