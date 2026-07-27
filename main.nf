@@ -287,6 +287,8 @@ process ASSEMBLY {
     
     script:
     def assembly_args = params.assembly_args ?: ''
+    def custom_configs = workflow.configFiles.findAll { !it.name.endsWith('nextflow.config') }
+    def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
     """
     # do this in this shell, or better set it up in the calling shell!
     export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
@@ -295,6 +297,8 @@ process ASSEMBLY {
       name = 'local'
       cpus = ${params.cpus}
     }" > child.config
+    
+    ${append_configs}
 
     NXF_VER=${params.nxf_ver} nextflow run epi2me-labs/${params.pipeline} \
         --fastq $fastq_pass \
