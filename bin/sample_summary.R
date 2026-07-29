@@ -17,10 +17,17 @@ library(stringr)
 arg <- commandArgs(trailingOnly = T)
 csvfiles <- list.files(pattern = arg[1], full.names = T)
 
+# lexocographical arrange of file
+locale <- list(locale = "en_US", numeric = TRUE)
+
 df <- vroom(file = csvfiles, delim = ",") %>% 
   mutate(
     diff = abs(log2(obs_size / user_size)),
     status = str_replace_na(status, "Failed due to insufficient reads")
+  ) %>%
+  dplyr::arrange(barcode, stringi::stri_rank(sample, opts_collator = locale)) %>%
+  mutate(
+    user_group = as.integer(factor(user, levels = unique(user))) %% 2
   )
 
 n_users <- n_distinct(df$user)
@@ -38,12 +45,10 @@ rowCallback <- c(
     "  }",
     "}"  
   )
-# lexocographical arrange of file
-locale <- list(locale = "en_US", numeric = TRUE)
 
 finaltable <- 
   DT::datatable(
-    dplyr::arrange(df, user, stringi::stri_rank(sample, opts_collator = locale)),
+    df,
     class = c('compact', 'hover'),
     caption = htmltools::tags$caption(
       style = 'caption-side: bottom; text-align: left; color: grey;',
@@ -70,14 +75,14 @@ finaltable <-
       searchPanes = list(show = FALSE, cascadePanes = TRUE),
       columnDefs = list(
         list(
-          searchPanes = list(show = FALSE), targets = c(1:3, 5:10)
+          searchPanes = list(show = FALSE), targets = c(1:3, 5:11)
         ),
         list(
           searchPanes = list(show = TRUE), targets = c(0,4) 
         ),
         list(
-          targets = 'diff', 
-          visible = FALSE) # hide diff
+          targets = c('diff', 'user_group'), 
+          visible = FALSE) # hide diff and user_group
       )
     )
   ) %>%
@@ -86,6 +91,7 @@ DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#228B22
 DT::formatStyle('nreads', color = styleInterval(c(200, 500), c('#e74c3c', '#f5b041', '#228B22'))) %>%
 DT::formatRound('assembly_quality', 0) %>%
 DT::formatStyle('status', color = styleEqual(c('pass', 'fail'), c('#228B22', '#e74c3c'))) %>%
-DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#228B22')))
+DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#228B22'))) %>%
+DT::formatStyle('user_group', target = 'row', backgroundColor = styleEqual(c(0, 1), c('#d9d9d9', '#ffffff')))
 
 DT::saveWidget(finaltable, file = '00-sample-status-summary.html', title = "sample-status-summary")
