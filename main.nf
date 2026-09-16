@@ -47,6 +47,7 @@ def writePipelineLog() {
     lines << ""
     lines << "pipeline:"
     lines << "------------------------------------------------------------"
+    lines << "nxf_tgs_version    : ${workflow.manifest.version ?: 'unknown'}"
     lines << "pipeline           : ${params.pipeline}"
     lines << "pipeline_version   : ${pipelineVersion}"
     lines << ""
@@ -342,12 +343,12 @@ process SAMPLE_STATUS {
     tag "$user"
     errorStrategy 'ignore'
 
-    publishDir(
-        "$params.outdir/$user", 
-        mode: "copy", 
-        pattern: "*.csv",
-        saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
-    )
+    // publishDir(
+    //     "$params.outdir/$user", 
+    //     mode: "copy", 
+    //     pattern: "*.csv",
+    //     saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
+    // )
 
     // sample_status.R finds *.assembly_stats.tsv files in the work dir via glob - no need to pass them explicitly
     input:
@@ -355,6 +356,7 @@ process SAMPLE_STATUS {
 
     output:
     path("*.csv"), emit: merged_sample_status_ch
+    tuple val(user), path("*.csv"), emit: user_sample_status_ch
 
     script:
     """
@@ -433,18 +435,19 @@ process MAPPING {
 process MAPPING_COUNTS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
-    publishDir(
-        "$params.outdir/$user", 
-        mode: "copy", 
-        pattern: "*.csv",
-        saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
-    )
+    // publishDir(
+    //     "$params.outdir/$user", 
+    //     mode: "copy", 
+    //     pattern: "*.csv",
+    //     saveAs: { fn -> "00-${user}-${file(fn).baseName}.csv" } 
+    // )
 
     input:
     tuple val(user), path(mapping_counts)
 
     output:
     path('*.csv'), emit: merged_mapping_counts_ch
+    tuple val(user), path('*.csv'), emit: user_mapping_counts_ch
 
     script:
     """
@@ -467,6 +470,25 @@ process MAPPING_SUMMARY {
     mapping_summary.R "*.csv" $workflow.runName
     """ 
 
+}
+
+process USER_REPORT {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+    tag "$user"
+    publishDir "$params.outdir/$user", mode: 'copy'
+
+    input:
+    tuple val(user), path(sample_status), path(mapping_summary)
+
+    output:
+    path("*.html")
+
+    script:
+    def pipeline_label = wfVersionMap[params.pipeline] ?: 'N/A'
+    def ms_arg = mapping_summary ? mapping_summary : 'dummy.csv'
+    """
+    user_report.R "$user" "$sample_status" "$ms_arg" "${params.pipeline} ${pipeline_label}" "${workflow.manifest.version ?: 'unknown'}"
+    """
 }
 
 process IGV_REPORTS {
@@ -630,6 +652,13 @@ workflow {
         .collect()
         //.view()
         | MAPPING_SUMMARY
+
+        SAMPLE_STATUS.out.user_sample_status_ch
+        .join(MAPPING_COUNTS.out.user_mapping_counts_ch, remainder: true)
+        .map { user, sample_status, mapping_summary -> 
+            [user, sample_status, mapping_summary ?: []] 
+        }
+        | USER_REPORT
  
     } else if (params.pipeline == 'wf-amplicon') {
         ASSEMBLY.out.amplicon_status_ch
