@@ -12,6 +12,11 @@ def writePipelineLog() {
     def osVersion = System.getProperty('os.version') ?: 'unknown'
     def osArch = System.getProperty('os.arch') ?: 'unknown'
     def javaVersion = System.getProperty('java.version') ?: 'unknown'
+    def nextflowVersion = nextflow.version ?: 'unknown'
+    def dockerVersion = 'unknown'
+    try {
+        dockerVersion = 'docker -v'.execute().text.trim()
+    } catch (Exception e) {}
     def processors = Runtime.runtime.availableProcessors()
     def pipelineVersion = wfVersionMap[params.pipeline] ?: 'N/A'
     def lines = []
@@ -31,6 +36,8 @@ def writePipelineLog() {
     lines << "user               : ${System.getProperty('user.name') ?: 'unknown'}"
     lines << "available_cores    : ${processors}"
     lines << "java_version       : ${javaVersion}"
+    lines << "nextflow_version   : ${nextflowVersion}"
+    lines << "docker_version     : ${dockerVersion}"
     lines << ""
     lines << "os_info:"
     lines << "------------------------------------------------------------"
