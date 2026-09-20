@@ -282,7 +282,7 @@ process HTMLREPORT {
     fi
 
     faster-report.R -p . \
-        --outfile 01-${user}-faster-report \
+        --outfile 01-${user}-rawreads-report \
         --user ${user} \
         --rundate \$RUNDATE \
         --flowcell \$FLOWCELL \
@@ -324,7 +324,7 @@ process ASSEMBLY {
         "$params.outdir/$user", 
         mode: "copy", 
         pattern: "02-assembly/*html", 
-        saveAs: { fn -> "02-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
+        saveAs: { fn -> "03-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
     ) 
     // [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
     input:

@@ -184,5 +184,5 @@ header <- tags$div(
 
 report <- htmlwidgets::prependContent(finaltable, header)
 
-out_file <- paste0("00-", user_name, "-assembly-report.html")
+out_file <- paste0("02-", user_name, "-assembly-report.html")
 htmlwidgets::saveWidget(report, file = out_file, title = paste(user_name, "Report"))
