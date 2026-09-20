@@ -81,6 +81,7 @@ def helpMessage() {
     Usage:
     -----------------------------------
     fastq            : path to raw fastq_pass data
+    bam              : if true, convert bam files found per barcode to fastq before merging (default: false)
     samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
@@ -99,6 +100,7 @@ log.info """\
     process (per user) raw fastq_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
     ========================================================================================================================
     fastq           : ${params.fastq}
+    bam             : ${params.bam}
     samplesheet     : ${params.samplesheet}
     pipeline        : ${params.pipeline}
     assembly_args   : ${params.assembly_args}
@@ -159,6 +161,29 @@ process READEXCEL {
     script:
     """
     convert_excel.R $excelfile
+    """
+}
+
+process CONVERT_BAM {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+    tag "$user - $samplename"
+    errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
+
+    input:
+    tuple val(samplename), val(barcode), val(user), path(mypath)
+
+    output:
+    tuple val(samplename), val(barcode), val(user), path('bam2fastq'), emit: converted_ch
+
+    script:
+    """
+    mkdir -p bam2fastq/${barcode}
+
+    shopt -s nullglob
+    for bam in ${mypath}/${barcode}/*.bam; do
+        base=\$(basename "\$bam" .bam)
+        samtools fastq -T '*' "\$bam" | pigz > bam2fastq/${barcode}/\${base}.fastq.gz
+    done
     """
 }
 
@@ -262,6 +287,27 @@ process HTMLREPORT {
         --rundate \$RUNDATE \
         --flowcell \$FLOWCELL \
         --basecall \$BC_MODEL
+    """
+}
+
+process MERGE_CONVERTED_FASTQ {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+
+    input:
+    path(converted_dirs, stageAs: 'converted_??')
+
+    output:
+    path('converted_fastq_pass')
+
+    script:
+    """
+    mkdir -p converted_fastq_pass
+    for d in converted_*/; do
+        for barcodedir in "\${d}"*/; do
+            [ -d "\$barcodedir" ] || continue
+            cp -rn "\$barcodedir" converted_fastq_pass/
+        done
+    done
     """
 }
 
@@ -580,13 +626,25 @@ workflow prep_samplesheet {
 
 workflow merge_reads {
     //prep_samplesheet()
-    prep_samplesheet().prepped_samplesheet_ch \
-    | MERGE_READS 
+    prepped_ch = prep_samplesheet().prepped_samplesheet_ch
+    if (params.bam) {
+        prepped_ch = CONVERT_BAM(prepped_ch)
+    }
+    prepped_ch | MERGE_READS
 }
 
 // check this for potential mixup of users and samples
 workflow report {
-    prep_samplesheet().prepped_samplesheet_ch \
+    prepped_ch = prep_samplesheet().prepped_samplesheet_ch
+    if (params.bam) {
+        prepped_ch = CONVERT_BAM(prepped_ch)
+        assembly_fastq_ch = MERGE_CONVERTED_FASTQ(
+            CONVERT_BAM.out.converted_ch.map { samplename, barcode, user, dir -> dir }.collect()
+        )
+    } else {
+        assembly_fastq_ch = fastq_pass_ch
+    }
+    prepped_ch \
     | MERGE_READS \
     | groupTuple(by: 0) \
     | HTMLREPORT
@@ -597,6 +655,7 @@ workflow report {
     fastq_ch = MERGE_READS.out.merged_fastq_ch
     new_assembly_ch = prep_samplesheet.out.assembly_ch
     validated_samplesheet_ch2 = prep_samplesheet.out.validated_samplesheet_ch
+    assembly_fastq_ch = assembly_fastq_ch
 }
 
 //barcode,alias,approx_size are needed by epi2me/wf
@@ -604,7 +663,7 @@ workflow {
     report() 
     if (params.pipeline != 'report-only') {
         report.out.new_assembly_ch
-        .combine(fastq_pass_ch)
+        .combine(report.out.assembly_fastq_ch)
         .combine(wf_ver.flatten().last())
         //.join(assembly_versions, by: [0,3]) \
         | ASSEMBLY
