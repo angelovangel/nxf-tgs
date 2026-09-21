@@ -23,6 +23,7 @@ fi
 
 # 2. Find the index of the 'barcode' column
 barcode_idx=$(echo "$HEADER" | sed 's/,/\n/g' | nl | grep 'barcode' | awk '{print $1}')
+echo "Barcode index: $barcode_idx"
 
 # 3. Create the new header for the output file
 echo "$HEADER,obs_size,nreads" > "$OUTPUT_FILE"
@@ -32,16 +33,57 @@ echo "$HEADER,obs_size,nreads" > "$OUTPUT_FILE"
 while IFS="," read line; do
     
     # Extract the barcode using the determined index
-    barcode=$(echo "$line" | cut -f "$barcode_idx" -d,)
+    barcode=$(echo "$line" | cut -f "$barcode_idx" -d, | tr -d '"')
+    echo "Working on $FASTQ_DIR/$barcode/"
     
-    # Calculate obs_size (maxbin)
-    obs_size=$(cat "$FASTQ_DIR/$barcode"/*.fastq.gz | \
-               seqkit seq -M 49499 -g | \
-               fasterplot -l - | \
-               grep "# maxbin:" | \
-               cut -f2 | \
-               tr -d ' ') # Remove potential leading/trailing spaces
-    nreads=$(cat "$FASTQ_DIR/$barcode"/*.fastq.gz | faster2 -ts - | cut -f 2 | tr -d ' ')
+    # Detect BAM vs fastq.gz and compute obs_size / nreads accordingly
+    if [ ! -d "$FASTQ_DIR/$barcode" ]; then
+        echo "Warning: directory $FASTQ_DIR/$barcode does not exist, skipping" >&2
+        obs_size=""
+        nreads=0
+    elif ls "$FASTQ_DIR/$barcode"/*.bam 1>/dev/null 2>&1; then
+        # BAM mode: many BAM files per barcode are expected, so merge with
+        # samtools merge (-u = uncompressed, faster since it's a pipe) and
+        # stream straight into samtools fastq via stdin - no tmp file required.
+        bam_files=("$FASTQ_DIR/$barcode"/*.bam)
+
+        read_count=$(samtools merge -u -o - "${bam_files[@]}" | samtools view -c -)
+        if [ "$read_count" -eq 0 ]; then
+            echo "Warning: no reads found for barcode $barcode, skipping conversion" >&2
+            obs_size=""
+            nreads=0
+        else
+            obs_size=$(samtools merge -u -o - "${bam_files[@]}" | samtools fastq - 2>/dev/null | \
+                       seqkit seq -M 49499 -g | \
+                       fasterplot -l - | \
+                       grep "# maxbin:" | \
+                       cut -f2 | \
+                       tr -d ' ')
+            nreads=$(samtools merge -u -o - "${bam_files[@]}" | samtools fastq - 2>/dev/null | faster2 -ts - | cut -f 2 | tr -d ' ')
+        fi
+    elif ls "$FASTQ_DIR/$barcode"/*.fastq.gz 1>/dev/null 2>&1; then
+        fq_files=("$FASTQ_DIR/$barcode"/*.fastq.gz)
+
+        read_count=$(( $(gunzip -c "${fq_files[@]}" | wc -l) / 4 ))
+        if [ "$read_count" -eq 0 ]; then
+            echo "Warning: no reads found for barcode $barcode, skipping conversion" >&2
+            obs_size=""
+            nreads=0
+        else
+            obs_size=$(cat "${fq_files[@]}" | \
+                       seqkit seq -M 49499 -g | \
+                       fasterplot -l - | \
+                       grep "# maxbin:" | \
+                       cut -f2 | \
+                       tr -d ' ') # Remove potential leading/trailing spaces
+            nreads=$(cat "${fq_files[@]}" | faster2 -ts - | cut -f 2 | tr -d ' ')
+        fi
+    else
+        # Directory exists but has no BAM or fastq.gz files in it
+        echo "Warning: no BAM or fastq.gz files found in $FASTQ_DIR/$barcode, skipping" >&2
+        obs_size=""
+        nreads=0
+    fi
     
     # Append the original line and the calculated obs_size to the output file
     echo "$line,$obs_size,$nreads" >> "$OUTPUT_FILE"
