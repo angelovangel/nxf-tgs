@@ -231,62 +231,28 @@ process REPORT {
 }
 
 process HTMLREPORT {
-    container 'docker.io/aangeloo/nxf-tgs:latest'
+    //container 'docker.io/aangeloo/faster-report:latest'
     tag "$user"
     maxForks 1 // This ensures sequential execution for this process, to prevent faster-report.knit.md which is in the script dir to be mixed up
     errorStrategy 'retry'
     maxRetries 3
-    publishDir "$params.outdir/$user", mode: 'copy', pattern: '*.html' // used for sharing with the user
-    //publishDir "$params.outdir", mode: 'copy', pattern: '*.html' // v5.1.14 of epi2me-labs looks for html reports recursively, so not needed
+    publishDir "${params.outdir}/$user", 
+        mode: 'copy', 
+        saveAs: { filename -> file(filename).getName() }
     
     input:
     tuple val(user), path(fastqpath)
 
     output:
-    path('*.html')
+    path('output/*.html')
 
     script:
     """
-    # get run info from fastq header to use in faster-report
-    # it is the same for all users
-    HEADER=\$(gzip -cd ${fastqpath[0]} | head -n 1)
-
-    FLOWCELL=\$(printf '%s\n' "\$HEADER" | grep -oE 'PU:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3)
-    if [[ -z "\$FLOWCELL" ]]; then
-        FLOWCELL=\$(printf '%s\n' "\$HEADER" | grep -oE 'flow_cell_id=[^[:space:]]+' | head -n 1 | cut -d= -f2)
-    fi
-
-    RUNDATE=\$(printf '%s\n' "\$HEADER" | grep -oE 'DT:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3 | cut -dT -f1)
-    if [[ -z "\$RUNDATE" ]]; then
-        RUNDATE=\$(printf '%s\n' "\$HEADER" | grep -oE 'start_time=[^[:space:]]+' | head -n 1 | cut -d= -f2 | cut -dT -f1)
-    fi
-
-    BC_MODEL=\$(printf '%s\n' "\$HEADER" | grep -oE 'RG:Z:[^[:space:]]+' | head -n 1 | cut -d: -f3)
-    if [[ -n "\$BC_MODEL" ]]; then
-        BC_MODEL="\${BC_MODEL#*_}"
-        BC_MODEL="\${BC_MODEL%_barcode*}"
-    else
-        BC_MODEL=\$(printf '%s\n' "\$HEADER" | grep -oE 'model_version_id=[^[:space:]]+' | head -n 1 | cut -d= -f2)
-    fi
-
-    if [[ -z "\$FLOWCELL" ]]; then
-        FLOWCELL="NA"
-    fi
-
-    if [[ -z "\$RUNDATE" ]]; then
-        RUNDATE="NA"
-    fi
-    
-    if [[ -z "\$BC_MODEL" ]]; then
-        BC_MODEL="NA"
-    fi
-
-    faster-report.R -p . \
-        --outfile 01-${user}-rawreads-report \
-        --user ${user} \
-        --rundate \$RUNDATE \
-        --flowcell \$FLOWCELL \
-        --basecall \$BC_MODEL
+    nextflow run angelovangel/faster-report \
+    --reads . \
+    --outfile 01-${user}-rawreads-report.html \
+    --user ${user} \
+    --simgel
     """
 }
 
