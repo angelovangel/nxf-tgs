@@ -167,7 +167,7 @@ process READEXCEL {
 process MERGE_READS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
-    errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
+    // missing barcodes are filtered out upstream in prep_samplesheet, so real errors surface here
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
     publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: '*.bam'
 
@@ -188,12 +188,23 @@ process MERGE_READS {
     } else {
         """
         #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
-        shopt -s extglob
+        shopt -s extglob nullglob
 
-        find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
-        cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${samplename}.fastq.gz
-        #cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${user}-${samplename}.fastq.gz
-        
+        # Only gzip fastq/fq files - avoid accidentally compressing bam files
+        # which may be present when the folder contains bam_pass output but --bam was not set
+        find ${mypath}/${barcode}/ -type f \\( -name "*.fastq" -o -name "*.fq" \\) -exec pigz {} \\;
+
+        # Collect all gzipped fastq files
+        fastq_files=( ${mypath}/${barcode}/@(*.fastq|*.fq).gz )
+
+        if [ \${#fastq_files[@]} -eq 0 ]; then
+            echo "ERROR: No fastq/fq files found in ${mypath}/${barcode}/." >&2
+            echo "       The directory may contain only BAM files - use --bam true if so." >&2
+            exit 1
+        fi
+
+        cat "\${fastq_files[@]}" > ${samplename}.fastq.gz
+
         """
     }
 }
@@ -518,22 +529,31 @@ workflow prep_samplesheet {
         .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{ it -> it.barcode =~ /^barcode*/ }
+        .tap { all_rows_ch }  // capture before OK filter
         .filter{it -> it.validate =~ /OK/ }
         .tap { validated_rows_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) } 
-        .combine(reads_dir_ch) 
-        //.view()
-        .set { samples_ch } 
+        .combine(reads_dir_ch)
+        .set { samples_ch }
+
+        all_rows_ch
+        .filter { it.validate != 'OK' }
+        .view { row -> "WARN: Skipping sample '${row.sample}' (${row.barcode}, user: ${row.user}, reason: ${row.validate})" }
     } else if (params.samplesheet.endsWith(".xlsx")) {
         VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), reads_dir_ch)
         .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
+        .tap { all_rows_ch }  // capture before OK filter
         .filter{it -> it.validate =~ /OK/ }
         .tap { validated_rows_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) }
         .combine(reads_dir_ch)
-        .set { samples_ch } 
+        .set { samples_ch }
+
+        all_rows_ch
+        .filter { it.validate != 'OK' }
+        .view { row -> "WARN: Skipping sample '${row.sample}' (${row.barcode}, user: ${row.user}, reason: ${row.validate})" }
     } else {
         exit 'Please provide either a .csv or a .xlsx samplesheet'
     }
