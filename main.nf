@@ -81,7 +81,7 @@ def helpMessage() {
     Usage:
     -----------------------------------
     reads            : path to raw data folder (fastq_pass or bam_pass, as output by MinKNOW)
-    bam              : if true, input contains bam files per barcode - merged with samtools merge for the HTML report, converted to fastq for mapping (default: false)
+    reads            : auto-detects bam or fastq input based on file extensions in the barcode directories
     samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
@@ -100,7 +100,6 @@ log.info """\
     process (per user) raw fastq_pass/bam_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
     ========================================================================================================================
     reads           : ${params.reads}
-    bam             : ${params.bam}
     samplesheet     : ${params.samplesheet}
     pipeline        : ${params.pipeline}
     assembly_args   : ${params.assembly_args}
@@ -117,8 +116,11 @@ samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExist
 wf_versions = Channel.from(wfVersionMap.collect { k, v -> [k, v] })
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
 
-// Create a channel for the static asset
-//reference_ch = Channel.fromPath( "${projectDir}/assets/mg1655.fasta", checkIfExists: true )
+// Auto-detect bam input once at startup by checking file extensions in barcode subdirectories
+isBamInput = file(params.reads).listFiles()?.any { subdir ->
+    subdir.isDirectory() && subdir.listFiles()?.any { it.name.endsWith('.bam') }
+} ?: false
+
 // has to be a value channel
 reference_ch = Channel.value( file( "${projectDir}/assets/mg1655.fasta" ) )
 
@@ -179,34 +181,31 @@ process MERGE_READS {
     tuple val(user), path('*.bam'), optional: true, emit: merged_bam_ch
     
     script:
-    if (params.bam) {
-        // bam mode: merge bams per barcode (goes to HTMLREPORT), also derive fastq for mapping
-        """
+    // Auto-detect bam or fastq based on file extensions in the barcode directory
+    """
+    shopt -s extglob nullglob
+
+    bam_files=( ${mypath}/${barcode}/*.bam )
+    if [ \${#bam_files[@]} -gt 0 ]; then
+        # bam mode: merge bams per barcode (goes to HTMLREPORT), also derive fastq for mapping
         samtools merge -@ ${task.cpus} -o ${samplename}.bam ${mypath}/${barcode}/*.bam
         samtools fastq -T '*' ${samplename}.bam | pigz > ${samplename}.fastq.gz
-        """
-    } else {
-        """
+    else
         #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
-        shopt -s extglob nullglob
-
-        # Only gzip fastq/fq files - avoid accidentally compressing bam files
-        # which may be present when the folder contains bam_pass output but --bam was not set
+        # Only gzip fastq/fq files
         find ${mypath}/${barcode}/ -type f \\( -name "*.fastq" -o -name "*.fq" \\) -exec pigz {} \\;
 
         # Collect all gzipped fastq files
         fastq_files=( ${mypath}/${barcode}/@(*.fastq|*.fq).gz )
 
         if [ \${#fastq_files[@]} -eq 0 ]; then
-            echo "ERROR: No fastq/fq files found in ${mypath}/${barcode}/." >&2
-            echo "       The directory may contain only BAM files - use --bam true if so." >&2
+            echo "ERROR: No fastq/fq or bam files found in ${mypath}/${barcode}/." >&2
             exit 1
         fi
 
         cat "\${fastq_files[@]}" > ${samplename}.fastq.gz
-
-        """
-    }
+    fi
+    """
 }
 
 process REPORT {
@@ -286,7 +285,7 @@ process ASSEMBLY {
     def assembly_args = params.assembly_args ?: ''
     def custom_configs = workflow.configFiles.findAll { !it.name.endsWith('nextflow.config') }
     def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
-    def reads_arg = params.bam ? "--bam $reads_dir" : "--fastq $reads_dir"
+    def reads_arg = isBamInput ? "--bam $reads_dir" : "--fastq $reads_dir"
     """
     # do this in this shell, or better set it up in the calling shell!
     export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
@@ -589,8 +588,8 @@ workflow report {
     // ASSEMBLY (epi2me wf) ingests fastq or bam directly, so always pass the original data
     assembly_reads_ch = reads_dir_ch
     MERGE_READS(samples_ch)
-    // bam mode: HTMLREPORT gets merged bams, otherwise merged fastq
-    htmlreport_ch = params.bam ? MERGE_READS.out.merged_bam_ch : MERGE_READS.out.merged_fastq_ch
+    // Use top-level isBamInput to pick the right channel for HTMLREPORT
+    htmlreport_ch = isBamInput ? MERGE_READS.out.merged_bam_ch : MERGE_READS.out.merged_fastq_ch
     htmlreport_ch \
     | groupTuple(by: 0) \
     | HTMLREPORT
