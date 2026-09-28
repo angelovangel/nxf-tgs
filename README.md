@@ -10,22 +10,22 @@ Nextflow pipeline for processing raw Oxford Nanopore run data - merge/rename fil
 
 Only `nextflow` and `docker` are required. The required inputs for the pipeline are:
 - `--samplesheet` - path to a csv or excel file with columns `sample`, `barcode` and `user`. Other columns can also be there.
-- `--fastq` - path to fastq_pass
+- `--reads` - path to fastq_pass or bam_pass folder. If `--bam` is set to true, then it is expected to be a bam_pass folder. Note: `wf-amplicon` works only with fastq_pass files
   
 The pipelines runs the following steps:
 - `merge_reads` - merge all reads belonging to a barcode and rename according to the provided samplesheet
 - `report` - generate a `csv` and `html` reports about read counts, quality etc. One report per user is generated.
-- `assembly` - perform assembly using one of the epi2me pipelines wf-clone-validation, wf-bacterial-genomes or wf-amplicon (default wf-clone-validation)
+- `assembly` - perform assembly using one of the epi2me workflows wf-clone-validation, wf-bacterial-genomes or wf-amplicon (default wf-clone-validation)
 - `mapping` and `IGV` - map raw reads to the assemblies and generate html IGV reports (one report per sample).
 
 ```bash
-nextflow run angelovangel/nxf-tgs --samplesheet path/to/samplesheet.csv --fastq path/to/fastq_pass
+nextflow run angelovangel/nxf-tgs --samplesheet path/to/samplesheet.csv --reads path/to/fastq_pass
 ```
 
 It is possible to run only `merge_reads` or `merge_reads` + `report`. For this, use the `-entry` parameter (note the single dash) in nextflow like so:
 
 ```bash
-nextflow run angelovangel/nxf-tgs --samplesheet path/to/samplesheet.csv --fastq path/to/fastq_pass -entry report
+nextflow run angelovangel/nxf-tgs --samplesheet path/to/samplesheet.csv --reads path/to/fastq_pass -entry report
 ```
 This will run `merge_reads` + `report` and no asembly and mapping...
 

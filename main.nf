@@ -76,12 +76,12 @@ def helpMessage() {
     log.info """\
     ========================================================================================================================
     NXF - TGS ONT PIPELINE
-    process (per user) raw fastq_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
+    process (per user) raw fastq_pass/bam_pass folder - merge/rename, generate report, assembly (plasmid, amplicon, bacterial genome)
     ========================================================================================================================
     Usage:
     -----------------------------------
-    fastq            : path to raw fastq_pass data
-    bam              : if true, convert bam files found per barcode to fastq before merging (default: false)
+    reads            : path to raw data folder (fastq_pass or bam_pass, as output by MinKNOW)
+    bam              : if true, input contains bam files per barcode - merged with samtools merge for the HTML report, converted to fastq for mapping (default: false)
     samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
@@ -97,9 +97,9 @@ def helpMessage() {
 log.info """\
     ========================================================================================================================
     NXF - TGS ONT PIPELINE
-    process (per user) raw fastq_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
+    process (per user) raw fastq_pass/bam_pass folder - merge/rename, generate reports, assembly (plasmid, amplicon, bacterial genome)
     ========================================================================================================================
-    fastq           : ${params.fastq}
+    reads           : ${params.reads}
     bam             : ${params.bam}
     samplesheet     : ${params.samplesheet}
     pipeline        : ${params.pipeline}
@@ -112,7 +112,7 @@ log.info """\
     """
     .stripIndent(true)
 
-fastq_pass_ch = Channel.fromPath(params.fastq, type: 'dir', checkIfExists: true)
+reads_dir_ch = Channel.fromPath(params.reads, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExists: true)
 wf_versions = Channel.from(wfVersionMap.collect { k, v -> [k, v] })
 wf_ver = Channel.from(params.pipeline).join(wf_versions)
@@ -131,17 +131,17 @@ process VALIDATE_SAMPLESHEET {
 
     input: 
     path(csv)
-    path(fastq_pass)
+    path(reads_dir)
 
     output:
     path("00-samplesheet-validated.csv")
 
     script:
     """
-    validate_samplesheet.R $csv $fastq_pass
+    validate_samplesheet.R $csv $reads_dir
     
     if [ ${params.pipeline} != 'wf-bacterial-genome' ]; then
-        get_maxbin.sh samplesheet-validated.csv $fastq_pass
+        get_maxbin.sh samplesheet-validated.csv $reads_dir
     else
         mv samplesheet-validated.csv 00-samplesheet-validated.csv
     fi
@@ -164,51 +164,38 @@ process READEXCEL {
     """
 }
 
-process CONVERT_BAM {
-    container 'docker.io/aangeloo/nxf-tgs:latest'
-    tag "$user - $samplename"
-    errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
-
-    input:
-    tuple val(samplename), val(barcode), val(user), path(mypath)
-
-    output:
-    tuple val(samplename), val(barcode), val(user), path('bam2fastq'), emit: converted_ch
-
-    script:
-    """
-    mkdir -p bam2fastq/${barcode}
-
-    shopt -s nullglob
-    for bam in ${mypath}/${barcode}/*.bam; do
-        base=\$(basename "\$bam" .bam)
-        samtools fastq -T '*' "\$bam" | pigz > bam2fastq/${barcode}/\${base}.fastq.gz
-    done
-    """
-}
-
 process MERGE_READS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
     errorStrategy 'ignore' //because some barcodes defined in the samplesheet might be missing in the data
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
+    publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: '*.bam'
 
     input:
     tuple val(samplename), val(barcode), val(user), path(mypath)
     
     output: 
     tuple val(user), path('*.fastq.gz'), emit: merged_fastq_ch
+    tuple val(user), path('*.bam'), optional: true, emit: merged_bam_ch
     
     script:
-    """
-    #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
-    shopt -s extglob
+    if (params.bam) {
+        // bam mode: merge bams per barcode (goes to HTMLREPORT), also derive fastq for mapping
+        """
+        samtools merge -@ ${task.cpus} -o ${samplename}.bam ${mypath}/${barcode}/*.bam
+        samtools fastq -T '*' ${samplename}.bam | pigz > ${samplename}.fastq.gz
+        """
+    } else {
+        """
+        #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
+        shopt -s extglob
 
-    find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
-    cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${samplename}.fastq.gz
-    #cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${user}-${samplename}.fastq.gz
-    
-    """
+        find ${mypath}/${barcode}/ -type f ! -name "*.gz" -exec pigz {} \\;
+        cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${samplename}.fastq.gz
+        #cat ${mypath}/${barcode}/@(*.fastq|*.fq).gz > ${user}-${samplename}.fastq.gz
+        
+        """
+    }
 }
 
 process REPORT {
@@ -241,7 +228,7 @@ process HTMLREPORT {
         saveAs: { filename -> file(filename).getName() }
     
     input:
-    tuple val(user), path(fastqpath)
+    tuple val(user), path(readsfiles)
 
     output:
     path('output/*.html')
@@ -253,27 +240,6 @@ process HTMLREPORT {
     --outfile 01-${user}-rawreads-report.html \
     --user ${user} \
     --simgel
-    """
-}
-
-process MERGE_CONVERTED_FASTQ {
-    container 'docker.io/aangeloo/nxf-tgs:latest'
-
-    input:
-    path(converted_dirs, stageAs: 'converted_??')
-
-    output:
-    path('converted_fastq_pass')
-
-    script:
-    """
-    mkdir -p converted_fastq_pass
-    for d in converted_*/; do
-        for barcodedir in "\${d}"*/; do
-            [ -d "\$barcodedir" ] || continue
-            cp -rn "\$barcodedir" converted_fastq_pass/
-        done
-    done
     """
 }
 
@@ -292,15 +258,15 @@ process ASSEMBLY {
         pattern: "02-assembly/*html", 
         saveAs: { fn -> "03-${user}-${file(fn).baseName}.html" } // rename wf-report to add username 
     ) 
-    // [user, /path/to/samplesheet.csv, /path/to/fastq_pass, version]
+    // [user, /path/to/samplesheet.csv, /path/to/reads_dir, version]
     input:
-    tuple val(user), path(samplesheet), path(fastq_pass), val(ver)
+    tuple val(user), path(samplesheet), path(reads_dir), val(ver)
     
     output:
     //path "output/*report.html"
     path "**"
     // this is not output by wf-amplicon and bacterial genome, so no mapping and IGV report there
-    tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: fasta_ch
+    tuple val(user), path("02-assembly/*.final.fasta"), path("02-assembly/*.annotations2.bed"), optional: true, emit: assembly_fasta_ch
     tuple val(user), path("02-assembly/sample_status.txt"), optional: true, emit: sample_status_ch
     tuple val(user), path("02-assembly/*.assembly_stats.tsv"), optional: true, emit: assembly_stats_ch
     tuple val(user), path("02-assembly/amplicon_sample_status.txt"), optional: true, emit: amplicon_status_ch
@@ -309,6 +275,7 @@ process ASSEMBLY {
     def assembly_args = params.assembly_args ?: ''
     def custom_configs = workflow.configFiles.findAll { !it.name.endsWith('nextflow.config') }
     def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
+    def reads_arg = params.bam ? "--bam $reads_dir" : "--fastq $reads_dir"
     """
     # do this in this shell, or better set it up in the calling shell!
     export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
@@ -321,7 +288,7 @@ process ASSEMBLY {
     ${append_configs}
 
     NXF_VER=${params.nxf_ver} nextflow run epi2me-labs/${params.pipeline} \
-        --fastq $fastq_pass \
+        $reads_arg \
         --sample_sheet $samplesheet \
         --out_dir '02-assembly' \
         ${assembly_args} \
@@ -407,7 +374,7 @@ process MAPPING {
 
     output:
     path "*.{bam,bai,tsv}"
-    tuple val(user), val(sample), path("*.{bam,bai,problems.tsv}"), emit: bam_ch
+    tuple val(user), val(sample), path("*.{bam,bai,problems.tsv}"), emit: mapping_bam_ch
     tuple val(user), path("*mapping-counts.txt"), emit: mapping_counts_ch//, optional: true
 
     script:
@@ -547,31 +514,31 @@ process IGV_REPORTS {
 workflow prep_samplesheet {
     main:
     if (params.samplesheet.endsWith(".csv")) {
-        VALIDATE_SAMPLESHEET(samplesheet_ch, fastq_pass_ch) 
+        VALIDATE_SAMPLESHEET(samplesheet_ch, reads_dir_ch) 
         .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{ it -> it.barcode =~ /^barcode*/ }
         .filter{it -> it.validate =~ /OK/ }
-        .tap { internal_ch }
+        .tap { validated_rows_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) } 
-        .combine(fastq_pass_ch) 
+        .combine(reads_dir_ch) 
         //.view()
-        .set { prepped_samplesheet_ch } 
+        .set { samples_ch } 
     } else if (params.samplesheet.endsWith(".xlsx")) {
-        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), fastq_pass_ch)
+        VALIDATE_SAMPLESHEET(READEXCEL(samplesheet_ch), reads_dir_ch)
         .tap {validated_samplesheet_ch }
         .splitCsv(header: true)
         .filter{it -> it.barcode =~ /^barcode*/}
         .filter{it -> it.validate =~ /OK/ }
-        .tap { internal_ch }
+        .tap { validated_rows_ch }
         .map { row -> tuple(row.sample, row.barcode, row.user) }
-        .combine(fastq_pass_ch)
-        .set { prepped_samplesheet_ch } 
+        .combine(reads_dir_ch)
+        .set { samples_ch } 
     } else {
         exit 'Please provide either a .csv or a .xlsx samplesheet'
     }
     // generate sample sheets per user and save as files
-    assembly_ch = internal_ch
+    user_samplesheet_ch = validated_rows_ch
         .collectFile(keepHeader: true, storeDir: "${workflow.workDir}/samplesheets"){ row ->
             sample      = row.sample
             barcode     = row.barcode
@@ -585,70 +552,63 @@ workflow prep_samplesheet {
         }
     
     emit:
-    prepped_samplesheet_ch
-    assembly_ch
+    samples_ch
+    user_samplesheet_ch
     validated_samplesheet_ch
 }
 
 workflow merge_reads {
     //prep_samplesheet()
-    prepped_ch = prep_samplesheet().prepped_samplesheet_ch
-    if (params.bam) {
-        prepped_ch = CONVERT_BAM(prepped_ch)
-    }
-    prepped_ch | MERGE_READS
+    samples_ch = prep_samplesheet().samples_ch
+    samples_ch | MERGE_READS
 }
 
 // check this for potential mixup of users and samples
 workflow report {
-    prepped_ch = prep_samplesheet().prepped_samplesheet_ch
-    if (params.bam) {
-        prepped_ch = CONVERT_BAM(prepped_ch)
-        assembly_fastq_ch = MERGE_CONVERTED_FASTQ(
-            CONVERT_BAM.out.converted_ch.map { samplename, barcode, user, dir -> dir }.collect()
-        )
-    } else {
-        assembly_fastq_ch = fastq_pass_ch
-    }
-    prepped_ch \
-    | MERGE_READS \
+    samples_ch = prep_samplesheet().samples_ch
+    // ASSEMBLY (epi2me wf) ingests fastq or bam directly, so always pass the original data
+    assembly_reads_ch = reads_dir_ch
+    MERGE_READS(samples_ch)
+    // bam mode: HTMLREPORT gets merged bams, otherwise merged fastq
+    htmlreport_ch = params.bam ? MERGE_READS.out.merged_bam_ch : MERGE_READS.out.merged_fastq_ch
+    htmlreport_ch \
     | groupTuple(by: 0) \
     | HTMLREPORT
     //| view()
     //| (REPORT & HTMLREPORT)
 
     emit:
-    fastq_ch = MERGE_READS.out.merged_fastq_ch
-    new_assembly_ch = prep_samplesheet.out.assembly_ch
-    validated_samplesheet_ch2 = prep_samplesheet.out.validated_samplesheet_ch
-    assembly_fastq_ch = assembly_fastq_ch
+    merged_fastq_ch = MERGE_READS.out.merged_fastq_ch
+    user_samplesheet_ch = prep_samplesheet.out.user_samplesheet_ch
+    validated_samplesheet_ch = prep_samplesheet.out.validated_samplesheet_ch
+    assembly_reads_ch = assembly_reads_ch
 }
 
 //barcode,alias,approx_size are needed by epi2me/wf
 workflow {
     report() 
     if (params.pipeline != 'report-only') {
-        report.out.new_assembly_ch
-        .combine(report.out.assembly_fastq_ch)
+        report.out.user_samplesheet_ch
+        .combine(report.out.assembly_reads_ch)
         .combine(wf_ver.flatten().last())
         //.join(assembly_versions, by: [0,3]) \
         | ASSEMBLY
 
-        report.out.fastq_ch
+        report.out.merged_fastq_ch
         .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1] ] }
-        .set { fastq_ch }
+        .set { sample_fastq_ch }
     
-        ASSEMBLY.out.fasta_ch
+        ASSEMBLY.out.assembly_fasta_ch
         .transpose()
         .map{ it -> [ it[0], it.toString().split("/").last().split("\\.")[0], it[1..2] ] }
-        .join(fastq_ch, by:[0,1])
+        .join(sample_fastq_ch, by:[0,1])
         //.view()
         .set { mapping_ch }
     }
 
     if (params.pipeline == 'wf-clone-validation') {
         ASSEMBLY.out.sample_status_ch
-        .combine(report.out.validated_samplesheet_ch2)
+        .combine(report.out.validated_samplesheet_ch)
         .join(ASSEMBLY.out.assembly_stats_ch, remainder: true)
         .map { user, sample_status, samplesheet, assembly_stats ->
             return [user, sample_status, samplesheet, assembly_stats ?: []]
@@ -661,7 +621,7 @@ workflow {
         
         MAPPING(mapping_ch, reference_ch)
         
-        MAPPING.out.bam_ch
+        MAPPING.out.mapping_bam_ch
         .join( mapping_ch, by: [0,1] )
         .map{ it -> it[0..3] } 
         //[user, sample, [bam, bam.bai, problems.tsv], [final.fasta, annotations2.bed]]
@@ -687,7 +647,7 @@ workflow {
  
     } else if (params.pipeline == 'wf-amplicon') {
         ASSEMBLY.out.amplicon_status_ch
-        .combine(report.out.validated_samplesheet_ch2)
+        .combine(report.out.validated_samplesheet_ch)
         .map { user, amplicon_status, samplesheet ->
             return [user, amplicon_status, samplesheet, []]
         }
