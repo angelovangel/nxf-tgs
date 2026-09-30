@@ -16,6 +16,7 @@ tsvfiles <- list.files(path = ".", pattern = "*.assembly_stats.tsv", full.names 
 df1 <- vroom(
   arg[2], 
   col_names = c('sample', 'pass_fail', 'length'), 
+  col_types = c(sample = 'c', pass_fail = 'c', length = 'd'),
   delim = ",", skip = 1,
   trim_ws = T, na = 'N/A'
   ) #! sample_status.txt
@@ -26,18 +27,20 @@ df2 <- vroom(
   col_names = T, 
   trim_ws = T, delim = ","
   ) %>% 
-  dplyr::filter(user == arg[1])
+  dplyr::filter(user == arg[1]) %>%
+  dplyr::mutate(sample = as.character(sample))
 
-if (length(tsvfiles > 0)) {
+if (length(tsvfiles) > 0) {
   df3 <- vroom(
     tsvfiles, 
     col_select = (c('sample_name', assembly_quality = 'mean_quality')), 
+    col_types = c(sample_name = 'c', mean_quality = 'd'),
     show_col_types = F
   )
 } else {
   df3 <- data.frame(
-    sample_name = NA,
-    assembly_quality = NA
+    sample_name = NA_character_,
+    assembly_quality = NA_real_
   )
 }
 

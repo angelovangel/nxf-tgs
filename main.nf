@@ -465,6 +465,7 @@ process USER_REPORT {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user"
     publishDir "$params.outdir/$user", mode: 'copy'
+    errorStrategy 'ignore'
 
     input:
     tuple val(user), path(sample_status), path(mapping_summary)
@@ -474,7 +475,7 @@ process USER_REPORT {
 
     script:
     def pipeline_label = wfVersionMap[params.pipeline] ?: 'N/A'
-    def ms_arg = mapping_summary ? mapping_summary : 'dummy.csv'
+    def ms_arg = mapping_summary ? mapping_summary : 'dummy_mapping.csv'
     """
     user_report.R "$user" "$sample_status" "$ms_arg" "${params.pipeline} ${pipeline_label}" "${workflow.manifest.version ?: 'unknown'}"
     """
@@ -659,6 +660,10 @@ workflow {
 
         SAMPLE_STATUS.out.user_sample_status_ch
         .join(MAPPING_COUNTS.out.user_mapping_counts_ch, remainder: true)
+        .filter { user, sample_status, mapping_summary ->
+            // Skip entirely if sample_status is missing (SAMPLE_STATUS was ignored/failed)
+            sample_status != null
+        }
         .map { user, sample_status, mapping_summary -> 
             [user, sample_status, mapping_summary ?: []] 
         }
