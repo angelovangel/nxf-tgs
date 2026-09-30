@@ -171,7 +171,7 @@ process MERGE_READS {
     tag "$user - $samplename"
     // missing barcodes are filtered out upstream in prep_samplesheet, so real errors surface here
     publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
-    publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: '*.bam'
+    publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: '*.bam', enabled: isBamInput
 
     input:
     tuple val(samplename), val(barcode), val(user), path(mypath)
