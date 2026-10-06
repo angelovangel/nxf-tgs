@@ -80,8 +80,7 @@ def helpMessage() {
     ========================================================================================================================
     Usage:
     -----------------------------------
-    reads            : path to raw data folder (fastq_pass or bam_pass, as output by MinKNOW)
-    reads            : auto-detects bam or fastq input based on file extensions in the barcode directories
+    reads            : path to raw data folder (fastq_pass or bam_pass, as output by MinKNOW), auto-detects bam or fastq input based on file extensions in the barcode directories
     samplesheet      : path to csv or excel with (at least) columns user, sample, barcode, dna_size
     pipeline         : epi2me workflow to use - can be wf-clone-validation, wf-bacterial-genomes, wf-amplicon, report-only
     assembly_args    : additional command-line arguments passed to the assembly workflow
