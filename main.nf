@@ -308,6 +308,7 @@ process ASSEMBLY {
     tuple val(user), path("02-assembly/*.assembly_stats.tsv"), optional: true, emit: assembly_stats_ch
     tuple val(user), path("02-assembly/amplicon_sample_status.txt"), optional: true, emit: amplicon_status_ch
     tuple val(user), path("02-assembly/results.json"), optional: true, emit: bacterial_results_ch
+    tuple val(user), path("02-assembly/*/alignments/*.aligned.sorted.bam"), optional: true, emit: amplicon_bam_ch
     
     script:
     def assembly_args = params.assembly_args ?: ''
@@ -356,6 +357,33 @@ process ASSEMBLY {
     if [ ${params.pipeline} = 'wf-amplicon' ]; then
         amplicon_sample_status.sh $samplesheet 02-assembly
     fi
+    """
+}
+
+// wf-amplicon: mean depth and primary ratio from reads aligned to the final consensus
+// primary_ratio = primary / (primary + secondary + supplementary), as in the wf-amplicon de novo QC
+process AMPLICON_ALN_STATS {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+    tag "$user"
+    errorStrategy 'ignore'
+
+    input:
+    tuple val(user), path(bams)
+
+    output:
+    tuple val(user), path("amplicon.alignment_stats.tsv")
+
+    script:
+    """
+    printf "sample_name\tmean_depth\tprimary_ratio\n" > amplicon.alignment_stats.tsv
+    for bam in ${bams}; do
+        sample=\$(basename \$bam .aligned.sorted.bam)
+        primary=\$(samtools view -c -F 0x904 \$bam)
+        other=\$(( \$(samtools view -c -f 0x100 \$bam) + \$(samtools view -c -f 0x800 \$bam) ))
+        depth=\$(samtools depth -a \$bam | awk '{ s += \$3 } END { if (NR > 0) printf "%.0f", s / NR; else print "NA" }')
+        ratio=\$(awk -v p=\$primary -v o=\$other 'BEGIN { if (p + o > 0) printf "%.3f", p / (p + o); else print "NA" }')
+        printf "%s\t%s\t%s\n" \$sample \$depth \$ratio >> amplicon.alignment_stats.tsv
+    done
     """
 }
 
@@ -706,8 +734,11 @@ workflow {
     } else if (params.pipeline == 'wf-amplicon') {
         ASSEMBLY.out.amplicon_status_ch
         .combine(report.out.validated_samplesheet_ch)
-        .map { user, amplicon_status, samplesheet ->
-            return [user, amplicon_status, samplesheet, []]
+        .join(ASSEMBLY.out.assembly_stats_ch, remainder: true)
+        .join(AMPLICON_ALN_STATS(ASSEMBLY.out.amplicon_bam_ch), remainder: true)
+        // sample_status.R picks up *.assembly_stats.tsv and *.alignment_stats.tsv from the work dir
+        .map { user, amplicon_status, samplesheet, assembly_stats, aln_stats ->
+            return [user, amplicon_status, samplesheet, [assembly_stats, aln_stats].flatten().findAll { it }]
         }
         | SAMPLE_STATUS
  

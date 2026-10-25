@@ -22,7 +22,7 @@ locale <- list(locale = "en_US", numeric = TRUE)
 
 df <- vroom(file = csvfiles, delim = ",") %>% 
   mutate(
-    diff = abs(log2(obs_size / user_size)),
+    diff = coalesce(abs(log2(assembly_size / user_size)), -1), # -1 = no assembly, not colored
     status = str_replace_na(status, "Failed due to insufficient reads")
   ) %>%
   dplyr::arrange(barcode, stringi::stri_rank(sample, opts_collator = locale)) %>%
@@ -49,7 +49,7 @@ rowCallback <- c(
 finaltable <- 
   DT::datatable(
     df,
-    class = c('compact', 'hover'),
+    class = c('compact', 'hover', 'row-border'),
     caption = htmltools::tags$caption(
       style = 'caption-side: bottom; text-align: left; color: grey;',
       paste0(
@@ -87,7 +87,7 @@ finaltable <-
     )
   ) %>%
 # style user_size based on diff
-DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#228B22', '#f5b041', '#e74c3c'))) %>%
+DT::formatStyle('user_size', 'diff', color = styleInterval(c(-0.5, 0.5, 1), c('inherit', '#228B22', '#f5b041', '#e74c3c'))) %>%
 DT::formatStyle('nreads', color = styleInterval(c(200, 500), c('#e74c3c', '#f5b041', 'inherit'))) %>%
 DT::formatRound('assembly_quality', 0) %>%
 DT::formatStyle('status', color = styleEqual(c('pass', 'fail'), c('#228B22', '#e74c3c'))) %>%

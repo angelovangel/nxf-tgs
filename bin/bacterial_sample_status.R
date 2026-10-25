@@ -36,7 +36,7 @@ parse_sample <- function(s) {
     n_circular = sum(vapply(flye, function(x) identical(x$circular, 'Y'), logical(1))),
     largest_contig = if (n_contigs > 0) max(lengths) else NA_real_,
     # length-weighted mean depth over all contigs
-    mean_depth = if (n_contigs > 0) round(sum(lengths * depths) / sum(lengths), 1) else NA_real_,
+    mean_depth = if (n_contigs > 0) round(sum(lengths * depths) / sum(lengths)) else NA_real_,
     n_plasmids = r$plasmid_identification$n_plasmid_contigs %||% NA_integer_,
     species = if (length(matches) > 0) matches[[1]]$species_call %||% NA_character_ else NA_character_,
     mlst_st = r$sequence_typing$sequence_type %||% NA_character_,

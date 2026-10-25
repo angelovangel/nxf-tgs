@@ -49,10 +49,10 @@ if (file.exists(mapping_summary_file)) {
   df <- df_status
 }
 
-# calculate difference or just format it as in sample_summary.R
-if ("obs_size" %in% names(df) && "user_size" %in% names(df)) {
+# difference between expected and assembly size, used to color user_size
+if ("assembly_size" %in% names(df) && "user_size" %in% names(df)) {
   df <- df %>% 
-    mutate(diff = abs(log2(obs_size / user_size)))
+    mutate(diff = coalesce(abs(log2(assembly_size / user_size)), -1)) # -1 = no assembly, not colored
 }
 
 n_samples <- nrow(df)
@@ -95,6 +95,7 @@ col_titles <- c(
   'n_circular' = 'Circular Contigs',
   'largest_contig' = 'Largest Contig',
   'mean_depth' = 'Mean Depth',
+  'primary_ratio' = 'Primary Ratio',
   'n_plasmids' = 'Plasmid Contigs',
   'species' = 'Species',
   'mlst_st' = 'MLST',
@@ -108,7 +109,7 @@ title_defs <- lapply(intersect(names(df), names(col_titles)), function(col) {
 finaltable <- 
   DT::datatable(
     df,
-    class = c('compact', 'hover'),
+    class = c('compact', 'hover', 'row-border'),
     escape = FALSE,
     #extensions = c('Select', 'SearchPanes', 'Buttons'), 
     rownames = FALSE,
@@ -127,7 +128,7 @@ finaltable <-
 # apply conditional formatting if columns exist
 if ("diff" %in% names(df)) {
   finaltable <- finaltable %>% 
-    DT::formatStyle('user_size', 'diff', color = styleInterval(c(0.5, 1), c('#228B22', '#f5b041', '#e74c3c')))
+    DT::formatStyle('user_size', 'diff', color = styleInterval(c(-0.5, 0.5, 1), c('inherit', '#228B22', '#f5b041', '#e74c3c')))
 }
 
 # hide specific columns
@@ -156,6 +157,10 @@ if ("assembly_quality" %in% names(df)) {
   finaltable <- finaltable %>%
     DT::formatRound('assembly_quality', 0) %>%
     DT::formatStyle('assembly_quality', color = styleInterval(c(25, 35), c('#e74c3c', '#f5b041', '#228B22')))
+}
+if ("primary_ratio" %in% names(df)) {
+  finaltable <- finaltable %>%
+    DT::formatRound('primary_ratio', 3)
 }
 if ("percent_assembly" %in% names(df)) {
   finaltable <- finaltable %>%
