@@ -252,6 +252,29 @@ process HTMLREPORT {
     """
 }
 
+// wf-amplicon does not accept --bam, so convert bam_pass to a fastq_pass-like dir (same barcode subdirs)
+process BAM_TO_FASTQ {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+
+    input:
+    path(reads_dir)
+
+    output:
+    path('fastq_pass')
+
+    script:
+    """
+    shopt -s nullglob
+    for dir in ${reads_dir}/*/; do
+        barcode=\$(basename \$dir)
+        bam_files=( \$dir*.bam )
+        [ \${#bam_files[@]} -eq 0 ] && continue
+        mkdir -p fastq_pass/\$barcode
+        samtools cat "\${bam_files[@]}" | samtools fastq -@ ${task.cpus} -T '*' - | pigz > fastq_pass/\$barcode/\${barcode}.fastq.gz
+    done
+    """
+}
+
 // no need to run this in docker as it is already dockerized
 process ASSEMBLY {
     tag "$user - ${params.pipeline} $ver"
@@ -284,7 +307,8 @@ process ASSEMBLY {
     def assembly_args = params.assembly_args ?: ''
     def custom_configs = workflow.configFiles.findAll { !it.name.endsWith('nextflow.config') }
     def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
-    def reads_arg = isBamInput ? "--bam $reads_dir" : "--fastq $reads_dir"
+    // wf-amplicon gets fastq converted by BAM_TO_FASTQ
+    def reads_arg = isBamInput && params.pipeline != 'wf-amplicon' ? "--bam $reads_dir" : "--fastq $reads_dir"
     """
     # do this in this shell, or better set it up in the calling shell!
     export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
@@ -585,8 +609,8 @@ workflow merge_reads {
 // check this for potential mixup of users and samples
 workflow report {
     samples_ch = prep_samplesheet().samples_ch
-    // ASSEMBLY (epi2me wf) ingests fastq or bam directly, so always pass the original data
-    assembly_reads_ch = reads_dir_ch
+    // ASSEMBLY (epi2me wf) ingests fastq or bam directly, so pass the original data (except wf-amplicon, which has no --bam)
+    assembly_reads_ch = isBamInput && params.pipeline == 'wf-amplicon' ? BAM_TO_FASTQ(reads_dir_ch) : reads_dir_ch
     MERGE_READS(samples_ch)
     // Use top-level isBamInput to pick the right channel for HTMLREPORT
     htmlreport_ch = isBamInput ? MERGE_READS.out.merged_bam_ch : MERGE_READS.out.merged_fastq_ch
