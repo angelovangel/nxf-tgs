@@ -5,8 +5,8 @@
 
 # arg[1] is user name
 # arg[2] is sample_status.csv path
-# arg[3] is mapping_summary.csv path
-# arg[4] is pipeline version or other info (optional)
+# arg[3] is mapping_summary.csv path (only wf-clone-validation, may not exist)
+# arg[4] is pipeline name and version, e.g. 'wf-amplicon v1.2.2' (optional)
 
 library(vroom)
 library(dplyr)
@@ -57,6 +57,13 @@ if ("obs_size" %in% names(df) && "user_size" %in% names(df)) {
 
 n_samples <- nrow(df)
 
+# report title and assembly label depend on the epi2me workflow (pipeline_label starts with its name)
+report_type <- dplyr::case_when(
+  startsWith(pipeline_label, 'wf-amplicon') ~ 'Amplicon',
+  startsWith(pipeline_label, 'wf-bacterial-genomes') ~ 'Bacterial Genome',
+  TRUE ~ 'Plasmid'
+)
+
 rowCallback <- c(
     "function(row, data){",
     "  for(var i=0; i<data.length; i++){",
@@ -83,7 +90,15 @@ col_titles <- c(
   'percent_assembly' = 'Assembly Mapped (%)',
   'percent_coli' = 'E. coli Mapped (%)',
   'percent_nonmapping' = 'Unmapped (%)',
-  'diff' = 'Diff'
+  'diff' = 'Diff',
+  'n_contigs' = 'Contigs',
+  'n_circular' = 'Circular Contigs',
+  'largest_contig' = 'Largest Contig',
+  'mean_depth' = 'Mean Depth',
+  'n_plasmids' = 'Plasmid Contigs',
+  'species' = 'Species',
+  'mlst_st' = 'MLST',
+  'n_amr_genes' = 'AMR Genes'
 )
 
 title_defs <- lapply(intersect(names(df), names(col_titles)), function(col) {
@@ -117,6 +132,11 @@ if ("diff" %in% names(df)) {
 
 # hide specific columns
 cols_to_hide <- intersect(names(df), c("diff", "validate", "allreads", "percent_nonmapping", "user"))
+# amplicon/bacterial: also hide columns without any values (e.g. obs_size, assembly_quality)
+if (report_type != 'Plasmid') {
+  empty_cols <- names(df)[sapply(df, function(x) all(is.na(x)))]
+  cols_to_hide <- union(cols_to_hide, setdiff(empty_cols, c("sample", "status")))
+}
 if (length(cols_to_hide) > 0) {
   targets_to_hide <- which(names(df) %in% cols_to_hide) - 1
   finaltable$x$options$columnDefs <- c(
@@ -154,7 +174,7 @@ if ("percent_nonmapping" %in% names(df)) {
 header <- tags$div(
   style = "font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 25px; margin-bottom: 25px; background-color: #f8f9fa; border-radius: 8px; border-left: 6px solid #2c3e50; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;",
   tags$div(
-    tags$h1("ONT Plasmid Assembly Report", style = "margin-top: 0; color: #2c3e50; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;"),
+    tags$h1(paste("ONT", report_type, "Assembly Report"), style = "margin-top: 0; color: #2c3e50; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;"),
     tags$div(
       style = "display: flex; gap: 30px; margin-top: 15px; font-size: 15px;",
       tags$div(
@@ -166,7 +186,7 @@ header <- tags$div(
         tags$span(n_samples, style = "color: #2c3e50; font-weight: 600;")
       ),
       tags$div(
-        tags$strong("Plasmid Assembly: ", style = "color: #7f8c8d; font-weight: 500;"),
+        tags$strong(paste0(report_type, " Assembly: "), style = "color: #7f8c8d; font-weight: 500;"),
         tags$span(pipeline_label, style = "color: #2c3e50; font-weight: 600;")
       ),
       tags$div(

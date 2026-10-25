@@ -141,7 +141,7 @@ process VALIDATE_SAMPLESHEET {
     """
     validate_samplesheet.R $csv $reads_dir
     
-    if [ ${params.pipeline} != 'wf-bacterial-genome' ]; then
+    if [ ${params.pipeline} != 'wf-bacterial-genomes' ]; then
         get_maxbin.sh samplesheet-validated.csv $reads_dir
     else
         mv samplesheet-validated.csv 00-samplesheet-validated.csv
@@ -191,18 +191,23 @@ process MERGE_READS {
         samtools fastq -T '*' ${samplename}.bam | pigz > ${samplename}.fastq.gz
     else
         #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching
-        # Only gzip fastq/fq files
-        find ${mypath}/${barcode}/ -type f \\( -name "*.fastq" -o -name "*.fq" \\) -exec pigz {} \\;
+        # never modify the raw data dir - ASSEMBLY reads it at the same time (in-place pigz caused duplicated reads)
+        gz_files=( ${mypath}/${barcode}/@(*.fastq|*.fq).gz )
+        plain_files=( ${mypath}/${barcode}/@(*.fastq|*.fq) )
 
-        # Collect all gzipped fastq files
-        fastq_files=( ${mypath}/${barcode}/@(*.fastq|*.fq).gz )
-
-        if [ \${#fastq_files[@]} -eq 0 ]; then
+        if [ \${#gz_files[@]} -eq 0 ] && [ \${#plain_files[@]} -eq 0 ]; then
             echo "ERROR: No fastq/fq or bam files found in ${mypath}/${barcode}/." >&2
             exit 1
         fi
 
-        cat "\${fastq_files[@]}" > ${samplename}.fastq.gz
+        # concatenated gzip streams are a valid gzip file
+        > ${samplename}.fastq.gz
+        if [ \${#gz_files[@]} -gt 0 ]; then
+            cat "\${gz_files[@]}" >> ${samplename}.fastq.gz
+        fi
+        if [ \${#plain_files[@]} -gt 0 ]; then
+            cat "\${plain_files[@]}" | pigz -p ${task.cpus} >> ${samplename}.fastq.gz
+        fi
     fi
     """
 }
@@ -282,7 +287,7 @@ process ASSEMBLY {
     publishDir (
         "$params.outdir/$user", 
         mode: "copy", 
-        pattern: "02-assembly/**{fasta,fai,fastq,gbk,bam,bai,flye_stats.tsv}" //wf html report is handled separately
+        pattern: "02-assembly/**{fasta,fasta.gz,fai,fastq,gbk,gbff,gff3,bam,bai,flye_stats.tsv}" //wf html report is handled separately
     )
     publishDir ( 
         "$params.outdir/$user", 
@@ -302,11 +307,14 @@ process ASSEMBLY {
     tuple val(user), path("02-assembly/sample_status.txt"), optional: true, emit: sample_status_ch
     tuple val(user), path("02-assembly/*.assembly_stats.tsv"), optional: true, emit: assembly_stats_ch
     tuple val(user), path("02-assembly/amplicon_sample_status.txt"), optional: true, emit: amplicon_status_ch
+    tuple val(user), path("02-assembly/results.json"), optional: true, emit: bacterial_results_ch
     
     script:
     def assembly_args = params.assembly_args ?: ''
     def custom_configs = workflow.configFiles.findAll { !it.name.endsWith('nextflow.config') }
     def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
+    // cap memory requests of the wf-pipeline processes (low_mem profile)
+    def resource_limits = params.max_memory ? "process { resourceLimits = [memory: '${params.max_memory}', cpus: ${params.cpus}] }" : ''
     // wf-amplicon gets fastq converted by BAM_TO_FASTQ
     def reads_arg = isBamInput && params.pipeline != 'wf-amplicon' ? "--bam $reads_dir" : "--fastq $reads_dir"
     """
@@ -317,6 +325,7 @@ process ASSEMBLY {
       name = 'local'
       cpus = ${params.cpus}
     }" > child.config
+    echo "${resource_limits}" >> child.config
     
     ${append_configs}
 
@@ -363,6 +372,7 @@ process SAMPLE_STATUS {
     // )
 
     // sample_status.R finds *.assembly_stats.tsv files in the work dir via glob - no need to pass them explicitly
+    // for wf-bacterial-genomes, sample_status is results.json
     input:
     tuple val(user), path(sample_status), path(samplesheet_validated), path(assembly_stats)
 
@@ -371,8 +381,9 @@ process SAMPLE_STATUS {
     tuple val(user), path("*.csv"), emit: user_sample_status_ch
 
     script:
+    def status_script = params.pipeline == 'wf-bacterial-genomes' ? 'bacterial_sample_status.R' : 'sample_status.R'
     """
-    sample_status.R ${user} ${sample_status} ${samplesheet_validated}
+    ${status_script} ${user} ${sample_status} ${samplesheet_validated}
     """
 }
 
@@ -703,5 +714,26 @@ workflow {
         SAMPLE_STATUS.out.merged_sample_status_ch
         .collect()
         | SAMPLE_SUMMARY
+
+        // no mapping for wf-amplicon and wf-bacterial-genomes
+        SAMPLE_STATUS.out.user_sample_status_ch
+        .map { user, sample_status -> [user, sample_status, []] }
+        | USER_REPORT
+    } else if (params.pipeline == 'wf-bacterial-genomes') {
+        ASSEMBLY.out.bacterial_results_ch
+        .combine(report.out.validated_samplesheet_ch)
+        .map { user, results_json, samplesheet ->
+            return [user, results_json, samplesheet, []]
+        }
+        | SAMPLE_STATUS
+
+        SAMPLE_STATUS.out.merged_sample_status_ch
+        .collect()
+        | SAMPLE_SUMMARY
+
+        // no mapping for wf-amplicon and wf-bacterial-genomes
+        SAMPLE_STATUS.out.user_sample_status_ch
+        .map { user, sample_status -> [user, sample_status, []] }
+        | USER_REPORT
     }
 }
