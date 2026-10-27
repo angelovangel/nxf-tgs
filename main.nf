@@ -316,8 +316,12 @@ process ASSEMBLY {
     def append_configs = custom_configs ? custom_configs.collect { "cat ${it} >> child.config" }.join('\n    ') : ''
     // cap memory requests of the wf-pipeline processes (low_mem profile)
     def resource_limits = params.max_memory ? "process { resourceLimits = [memory: '${params.max_memory}', cpus: ${params.cpus}] }" : ''
+    // bakta occasionally hangs on single samples - give up on annotation for those instead of blocking the run
+    def bakta_limit = params.pipeline == 'wf-bacterial-genomes' ? "process { withName: 'runBakta' { time = '${params.bakta_time}'; errorStrategy = 'ignore' } }" : ''
+    // the epi2me wf runs in a stable dir per session and user, so that a retry of this task resumes it (-resume)
+    def child_dir = "${workflow.workDir}/epi2me/${workflow.sessionId}-${user}"
     // wf-amplicon gets fastq converted by BAM_TO_FASTQ
-    def reads_arg = isBamInput && params.pipeline != 'wf-amplicon' ? "--bam $reads_dir" : "--fastq $reads_dir"
+    def reads_flag = isBamInput && params.pipeline != 'wf-amplicon' ? '--bam' : '--fastq'
     """
     # do this in this shell, or better set it up in the calling shell!
     export NXF_SINGULARITY_CACHEDIR="\$HOME/singularity-cache"
@@ -327,17 +331,27 @@ process ASSEMBLY {
       cpus = ${params.cpus}
     }" > child.config
     echo "${resource_limits}" >> child.config
+    echo "${bakta_limit}" >> child.config
     
     ${append_configs}
 
+    # absolute, resolved input paths - they must be identical between attempts for -resume to work
+    TASK_DIR=\$PWD
+    READS=\$(readlink -f $reads_dir)
+    SHEET=\$(readlink -f $samplesheet)
+
+    mkdir -p ${child_dir} && cd ${child_dir}
     NXF_VER=${params.nxf_ver} nextflow run epi2me-labs/${params.pipeline} \
-        $reads_arg \
-        --sample_sheet $samplesheet \
-        --out_dir '02-assembly' \
+        ${reads_flag} \$READS \
+        --sample_sheet \$SHEET \
+        --out_dir \$TASK_DIR/02-assembly \
         ${assembly_args} \
-        -c child.config \
+        -c \$TASK_DIR/child.config \
+        -w ${child_dir}/work \
+        -resume \
         -r $ver \
         -profile ${params.assembly_profile}
+    cd \$TASK_DIR
         
     # fix annotations.bed
     # this has to be moved out in IGV process to be able to run in docker because of the R libraries. Or use base R!
