@@ -68,7 +68,7 @@ rowCallback <- c(
     "function(row, data){",
     "  for(var i=0; i<data.length; i++){",
     "    if(data[i] === null){",
-    "      $('td:eq('+i+')', row).html('-')",
+    "      $(this.api().cell(row, i).node()).html('-')", # by data column, td:eq() would count only visible cells
     "        .css({'color': 'rgb(151,151,151)', 'font-style': 'italic'});",
     "    }",
     "  }",
