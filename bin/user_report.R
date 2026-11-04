@@ -64,7 +64,7 @@ report_type <- dplyr::case_when(
   TRUE ~ 'Plasmid'
 )
 
-# wf-bacterial-genomes: show predicted resistance classes as short badges on one line (full name as tooltip)
+# wf-bacterial-genomes: show predicted resistance classes as short badges, wrapping within the cell (full name as tooltip)
 amr_abbrev <- c(
   'carbapenem' = 'CARB', 'beta-lactam' = 'BL', 'aminoglycoside' = 'AG', 'aminocyclitol' = 'AMC',
   'macrolide' = 'MAC', 'lincosamide' = 'LIN', 'streptogramin a' = 'SGA', 'streptogramin b' = 'SGB',
@@ -93,11 +93,7 @@ amr_badges <- function(r) {
   cls <- strsplit(r, ', ', fixed = TRUE)[[1]]
   cls <- c(intersect('carbapenem', cls), setdiff(cls, 'carbapenem'))
   colors <- amr_color(cls)
-  paste0(
-    '<span style="white-space:nowrap">',
-    paste0('<span title="', cls, '" style="display:inline-block;padding:0 4px;margin:1px;border-radius:3px;font-size:11px;', colors, '">', abbrev(cls), '</span>', collapse = ''),
-    '</span>'
-  )
+  paste0('<span class="amr-tip" data-tip="', cls, '" style="display:inline-block;padding:0 4px;margin:1px;border-radius:3px;font-size:11px;', colors, '">', abbrev(cls), '</span>', collapse = '')
 }
 amr_legend <- NULL
 if ("resistance" %in% names(df) && any(!is.na(df$resistance))) {
@@ -109,6 +105,13 @@ if ("resistance" %in% names(df) && any(!is.na(df$resistance))) {
   )
   df$resistance <- vapply(df$resistance, amr_badges, character(1), USE.NAMES = FALSE)
 }
+
+# css tooltip for resistance badges, a native title attribute only shows after a browser-controlled delay
+amr_style <- tags$style(HTML(paste0(
+  ".amr-tip{position:relative;cursor:default}.amr-tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;right:0;z-index:10;width:max-content;max-width:320px;padding:2px 6px;margin-bottom:2px;border-radius:3px;font-size:12px;text-align:left;white-space:normal;background:#2c3e50;color:#fff;pointer-events:none}",
+  ".amr-toggle{border:0;padding:0;background:none;font:inherit;color:inherit;cursor:pointer;white-space:nowrap}.amr-toggle::before{content:'\\25B8';display:inline-block;margin-right:4px;color:#7f8c8d}.amr-toggle[aria-expanded=true]::before{transform:rotate(90deg)}",
+  ".amr-details{margin-left:auto;border-collapse:collapse;font-size:12px}.amr-details th,.amr-details td{padding:2px 10px;text-align:left;border-bottom:1px solid #e5e7e9}.amr-details .num{text-align:right}"
+)))
 
 rowCallback <- c(
     "function(row, data){",
@@ -154,11 +157,39 @@ title_defs <- lapply(intersect(names(df), names(col_titles)), function(col) {
   list(targets = which(names(df) == col) - 1, title = col_titles[[col]])
 })
 
+# wf-bacterial-genomes: arrow on the AMR gene count opens a second row with the per-gene details
+has_gene_details <- all(c("n_amr_genes", "amr_genes") %in% names(df))
+amr_details_callback <- if (has_gene_details) c(
+  "table.on('click', 'button.amr-toggle', function(){",
+  "  var btn = $(this), row = table.row(btn.closest('tr'));",
+  "  if(row.child.isShown()){",
+  "    row.child.hide();",
+  "    btn.attr('aria-expanded', 'false');",
+  "    return;",
+  "  }",
+  "  var cols = [['gene', 'Gene'], ['drugs', 'Associated drugs'], ['identity', 'Identity (%)'], ['coverage', 'Coverage (%)'], ['contigs', 'Contigs']];",
+  "  var numeric = function(key){ return key === 'identity' || key === 'coverage'; };",
+  "  var details = $('<table class=\"amr-details\"><thead><tr></tr></thead><tbody></tbody></table>');",
+  "  cols.forEach(function(c){",
+  "    $('<th>').text(c[1]).toggleClass('num', numeric(c[0])).appendTo(details.find('thead tr'));",
+  "  });",
+  paste0("  JSON.parse(row.data()[", which(names(df) == "amr_genes") - 1, "]).forEach(function(g){"),
+  "    var tr = $('<tr>').appendTo(details.find('tbody'));",
+  "    cols.forEach(function(c){",
+  "      $('<td>').text(g[c[0]] === '' ? '-' : g[c[0]]).toggleClass('num', numeric(c[0])).appendTo(tr);",
+  "    });",
+  "  });",
+  "  row.child(details).show();",
+  "  btn.attr('aria-expanded', 'true');",
+  "});"
+) else "return table;"
+
 finaltable <- 
   DT::datatable(
     df,
     class = c('compact', 'hover', 'row-border'),
     escape = FALSE,
+    callback = JS(amr_details_callback),
     #extensions = c('Select', 'SearchPanes', 'Buttons'), 
     rownames = FALSE,
     options = list(
@@ -180,7 +211,7 @@ if ("diff" %in% names(df)) {
 }
 
 # hide specific columns
-cols_to_hide <- intersect(names(df), c("diff", "validate", "allreads", "percent_nonmapping", "user"))
+cols_to_hide <- intersect(names(df), c("diff", "validate", "allreads", "percent_nonmapping", "user", "amr_genes"))
 # amplicon/bacterial: also hide columns without any values (e.g. obs_size, assembly_quality)
 if (report_type != 'Plasmid') {
   empty_cols <- names(df)[sapply(df, function(x) all(is.na(x)))]
@@ -195,6 +226,21 @@ if (length(cols_to_hide) > 0) {
   finaltable$x$options$columnDefs <- c(
     finaltable$x$options$columnDefs,
     list(list(targets = targets_to_hide, visible = FALSE))
+  )
+}
+# render the arrow only for display so the count still sorts as a number
+if (has_gene_details) {
+  finaltable$x$options$columnDefs <- c(
+    finaltable$x$options$columnDefs,
+    list(list(
+      targets = which(names(df) == "n_amr_genes") - 1,
+      render = JS(paste0(
+        "function(data, type, row){",
+        "  if(type !== 'display' || data === null || row[", which(names(df) == "amr_genes") - 1, "] === null) return data;",
+        "  return '<button type=\"button\" class=\"amr-toggle\" aria-expanded=\"false\" title=\"Show AMR genes\">' + data + '</button>';",
+        "}"
+      ))
+    ))
   )
 }
 if ("nreads" %in% names(df)) {
@@ -262,6 +308,7 @@ header <- tags$div(
 
 report <- htmlwidgets::prependContent(finaltable, header)
 if (!is.null(amr_legend)) report <- htmlwidgets::appendContent(report, amr_legend)
+if (report_type == 'Bacterial Genome') report <- htmlwidgets::appendContent(report, amr_style)
 
 out_file <- paste0("02-", user_name, "-assembly-report.html")
 htmlwidgets::saveWidget(report, file = out_file, title = paste(user_name, "Report"))

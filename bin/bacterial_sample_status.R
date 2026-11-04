@@ -52,6 +52,31 @@ resistance_classes <- function(amr) {
   paste(sort(unique(classes)), collapse = ', ')
 }
 
+# json with one entry per gene for the expandable details in the user report: associated drugs of all hits,
+# identity and coverage of the best hit (highest ResFinder grade) and the contigs with a hit
+amr_gene_details <- function(regions) {
+  if (length(regions) == 0) return(NA_character_)
+  hits <- bind_rows(lapply(regions, function(g) data.frame(
+    gene = g$gene_name %||% '',
+    drug = unlist(g$phenotypes) %||% NA_character_,
+    grade = g$grade %||% NA_real_,
+    identity = g$identity %||% NA_real_,
+    coverage = g$coverage %||% NA_real_,
+    contig = g$query_contig %||% NA_character_,
+    stringsAsFactors = F
+  )))
+  details <- hits %>%
+    arrange(desc(grade), desc(identity), desc(coverage)) %>%
+    group_by(gene) %>%
+    summarise(
+      drugs = paste(sort(unique(na.omit(drug))), collapse = ', '),
+      identity = round(first(identity), 1),
+      coverage = round(first(coverage), 1),
+      contigs = paste(unique(na.omit(contig)), collapse = ', ')
+    )
+  as.character(toJSON(details, dataframe = 'rows'))
+}
+
 # 'ST19 (abaumannii_2)', '-' when no ST could be assigned
 mlst <- function(st) {
   type <- st$sequence_type %||% NA_character_
@@ -67,6 +92,7 @@ parse_sample <- function(s) {
   depths <- vapply(contigs, function(x) as.numeric(x$coverage$mean %||% NA_real_), numeric(1))
   n_contigs <- length(contigs)
   matches <- r$species_identification$detected_matches %||% list()
+  regions <- r$antimicrobial_resistance$seq_regions %||% list()
   data.frame(
     sample = as.character(s$alias),
     n_seqs = r$fastq$n_seqs %||% NA_real_,
@@ -83,12 +109,13 @@ parse_sample <- function(s) {
     mlst_st = mlst(r$sequence_typing),
     resistance = resistance_classes(r$antimicrobial_resistance),
     # distinct genes, the same gene can be hit on several contigs
-    n_amr_genes = length(unique(vapply(r$antimicrobial_resistance$seq_regions %||% list(), function(g) g$gene_name %||% '', character(1)))),
+    n_amr_genes = length(unique(vapply(regions, function(g) g$gene_name %||% '', character(1)))),
+    amr_genes = amr_gene_details(regions),
     stringsAsFactors = F
   )
 }
 
-extra_cols <- c('n_contigs', 'n_circular', 'largest_contig', 'mean_depth', 'n_plasmids', 'species', 'other_species', 'mlst_st', 'resistance', 'n_amr_genes')
+extra_cols <- c('n_contigs', 'n_circular', 'largest_contig', 'mean_depth', 'n_plasmids', 'species', 'other_species', 'mlst_st', 'resistance', 'n_amr_genes', 'amr_genes')
 
 df1 <- bind_rows(lapply(res$samples, parse_sample))
 if (nrow(df1) == 0) {

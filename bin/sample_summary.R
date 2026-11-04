@@ -34,7 +34,7 @@ df <- vroom(file = csvfiles, delim = ",") %>%
 if (identical(arg[4], 'wf-bacterial-genomes')) {
   df <- df %>% dplyr::select(-any_of(c(
     'n_contigs', 'n_circular', 'largest_contig', 'mean_depth', 'n_plasmids',
-    'species', 'other_species', 'mlst_st', 'resistance', 'n_amr_genes'
+    'species', 'other_species', 'mlst_st', 'resistance', 'n_amr_genes', 'amr_genes'
   )))
 }
 
