@@ -30,6 +30,14 @@ df <- vroom(file = csvfiles, delim = ",") %>%
     user_group = as.integer(factor(user, levels = unique(user))) %% 2
   )
 
+# wf-bacterial-genomes per-sample details (species, MLST, AMR etc.) are only shown in the user reports
+if (identical(arg[4], 'wf-bacterial-genomes')) {
+  df <- df %>% dplyr::select(-any_of(c(
+    'n_contigs', 'n_circular', 'largest_contig', 'mean_depth', 'n_plasmids',
+    'species', 'other_species', 'mlst_st', 'resistance', 'n_amr_genes'
+  )))
+}
+
 n_users <- n_distinct(df$user)
 pipeline_label <- if (!is.na(arg[4])) paste0(arg[4], " ", arg[5]) else ""
 

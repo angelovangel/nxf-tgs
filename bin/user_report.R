@@ -64,6 +64,52 @@ report_type <- dplyr::case_when(
   TRUE ~ 'Plasmid'
 )
 
+# wf-bacterial-genomes: show predicted resistance classes as short badges on one line (full name as tooltip)
+amr_abbrev <- c(
+  'carbapenem' = 'CARB', 'beta-lactam' = 'BL', 'aminoglycoside' = 'AG', 'aminocyclitol' = 'AMC',
+  'macrolide' = 'MAC', 'lincosamide' = 'LIN', 'streptogramin a' = 'SGA', 'streptogramin b' = 'SGB',
+  'tetracycline' = 'TET', 'quinolone' = 'QUIN', 'folate pathway antagonist' = 'FPA', 'amphenicol' = 'PHE',
+  'fosfomycin' = 'FOS', 'rifamycin' = 'RIF', 'polymyxin' = 'POL', 'glycopeptide' = 'GLY',
+  'oxazolidinone' = 'OXZ', 'nitroimidazole' = 'NIT', 'fusidic acid' = 'FUS', 'pseudomonic acid' = 'MUP',
+  'quaternary ammonium compound' = 'QAC'
+)
+abbrev <- function(cls) ifelse(cls %in% names(amr_abbrev), amr_abbrev[cls], toupper(substr(cls, 1, 4)))
+# pale background per class, carbapenem is the only solid (red) badge
+amr_colors <- c(
+  'carbapenem' = 'background:#e74c3c;color:#fff;',
+  'beta-lactam' = 'background:#fadbd8;color:#78281f;',
+  'aminoglycoside' = 'background:#d6eaf8;color:#1b4f72;', 'aminocyclitol' = 'background:#d6eaf8;color:#1b4f72;',
+  'macrolide' = 'background:#e8daef;color:#4a235a;', 'lincosamide' = 'background:#e8daef;color:#4a235a;',
+  'streptogramin a' = 'background:#e8daef;color:#4a235a;', 'streptogramin b' = 'background:#e8daef;color:#4a235a;',
+  'tetracycline' = 'background:#d5f5e3;color:#145a32;', 'quinolone' = 'background:#fdebd0;color:#7e5109;',
+  'folate pathway antagonist' = 'background:#fcf3cf;color:#7d6608;', 'amphenicol' = 'background:#d1f2eb;color:#0e6251;',
+  'fosfomycin' = 'background:#f6ddcc;color:#6e2c00;', 'rifamycin' = 'background:#fae5d3;color:#784212;',
+  'polymyxin' = 'background:#f5b7b1;color:#641e16;', 'glycopeptide' = 'background:#d4e6f1;color:#154360;',
+  'quaternary ammonium compound' = 'background:#e5e7e9;color:#424949;'
+)
+amr_color <- function(cls) ifelse(cls %in% names(amr_colors), amr_colors[cls], 'background:#e9ecef;color:#2c3e50;')
+amr_badges <- function(r) {
+  if (is.na(r)) return(NA_character_)
+  cls <- strsplit(r, ', ', fixed = TRUE)[[1]]
+  cls <- c(intersect('carbapenem', cls), setdiff(cls, 'carbapenem'))
+  colors <- amr_color(cls)
+  paste0(
+    '<span style="white-space:nowrap">',
+    paste0('<span title="', cls, '" style="display:inline-block;padding:0 4px;margin:1px;border-radius:3px;font-size:11px;', colors, '">', abbrev(cls), '</span>', collapse = ''),
+    '</span>'
+  )
+}
+amr_legend <- NULL
+if ("resistance" %in% names(df) && any(!is.na(df$resistance))) {
+  present <- sort(unique(unlist(strsplit(na.omit(df$resistance), ', ', fixed = TRUE))))
+  amr_legend <- tags$div(
+    style = "font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; color: #7f8c8d; margin-top: 15px;",
+    tags$strong("Predicted resistance: "),
+    paste(paste0(abbrev(present), " = ", present), collapse = ", ")
+  )
+  df$resistance <- vapply(df$resistance, amr_badges, character(1), USE.NAMES = FALSE)
+}
+
 rowCallback <- c(
     "function(row, data){",
     "  for(var i=0; i<data.length; i++){",
@@ -97,8 +143,10 @@ col_titles <- c(
   'mean_depth' = 'Mean Depth',
   'primary_ratio' = 'Primary Ratio',
   'n_plasmids' = 'Plasmid Contigs',
-  'species' = 'Species',
+  'species' = 'Species (ANI)',
+  'other_species' = 'Other Species',
   'mlst_st' = 'MLST',
+  'resistance' = 'Predicted Resistance',
   'n_amr_genes' = 'AMR Genes'
 )
 
@@ -137,6 +185,10 @@ cols_to_hide <- intersect(names(df), c("diff", "validate", "allreads", "percent_
 if (report_type != 'Plasmid') {
   empty_cols <- names(df)[sapply(df, function(x) all(is.na(x)))]
   cols_to_hide <- union(cols_to_hide, setdiff(empty_cols, c("sample", "status")))
+}
+# bacterial genomes: expected size is a rough placeholder in the samplesheet
+if (report_type == 'Bacterial Genome') {
+  cols_to_hide <- union(cols_to_hide, intersect(names(df), "user_size"))
 }
 if (length(cols_to_hide) > 0) {
   targets_to_hide <- which(names(df) %in% cols_to_hide) - 1
@@ -179,7 +231,8 @@ if ("percent_nonmapping" %in% names(df)) {
 header <- tags$div(
   style = "font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 25px; margin-bottom: 25px; background-color: #f8f9fa; border-radius: 8px; border-left: 6px solid #2c3e50; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;",
   tags$div(
-    tags$h1(paste("ONT", report_type, "Assembly Report"), style = "margin-top: 0; color: #2c3e50; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;"),
+    tags$h1(paste("ONT", report_type, "Assembly Report"), style = "margin-top: 0; margin-bottom: 4px; color: #2c3e50; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;"),
+    tags$div("For research use only. Not for use in diagnostic procedures.", style = "color: #e74c3c; font-size: 13px; font-style: italic;"),
     tags$div(
       style = "display: flex; gap: 30px; margin-top: 15px; font-size: 15px;",
       tags$div(
@@ -208,6 +261,7 @@ header <- tags$div(
 )
 
 report <- htmlwidgets::prependContent(finaltable, header)
+if (!is.null(amr_legend)) report <- htmlwidgets::appendContent(report, amr_legend)
 
 out_file <- paste0("02-", user_name, "-assembly-report.html")
 htmlwidgets::saveWidget(report, file = out_file, title = paste(user_name, "Report"))
