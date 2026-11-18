@@ -31,6 +31,9 @@ if (length(args) >= 5) {
   nxf_tgs_version <- ""
 }
 
+# arg[6] is --max_reads (optional, 'null' if off): delivered fastq/bam files are capped to the first N reads per sample
+max_reads <- if (length(args) >= 6 && !args[6] %in% c("", "null", "NA")) args[6] else NULL
+
 # Read sample status
 df_status <- vroom(sample_status_file, delim = ",", show_col_types = FALSE)
 
@@ -279,6 +282,12 @@ header <- tags$div(
   tags$div(
     tags$h1(paste("ONT", report_type, "Assembly Report"), style = "margin-top: 0; margin-bottom: 4px; color: #2c3e50; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;"),
     tags$div("For research use only. Not for use in diagnostic procedures.", style = "color: #e74c3c; font-size: 13px; font-style: italic;"),
+    if (!is.null(max_reads)) tags$div(
+      paste0("Delivered read files (01-fastq / 01-bam) are capped to the first ",
+             format(as.numeric(max_reads), big.mark = ",", scientific = FALSE),
+             " reads per sample. All reads were used for assembly and analysis."),
+      style = "margin-top: 8px; padding: 6px 10px; background-color: #fff3cd; color: #856404; border-radius: 4px; font-size: 13px; display: inline-block;"
+    ),
     tags$div(
       style = "display: flex; gap: 30px; margin-top: 15px; font-size: 15px;",
       tags$div(

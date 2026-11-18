@@ -40,6 +40,8 @@ if (identical(arg[4], 'wf-bacterial-genomes')) {
 
 n_users <- n_distinct(df$user)
 pipeline_label <- if (!is.na(arg[4])) paste0(arg[4], " ", arg[5]) else ""
+# arg[6] is --max_reads (optional, 'null' if off)
+max_reads_label <- if (!is.na(arg[6]) && !arg[6] %in% c("", "null", "NA")) paste0(" ○ delivered reads capped to ", arg[6], " per sample") else ""
 
 # format NA as NA in DT
 # https://stackoverflow.com/questions/58526047/customizing-how-datatables-displays-missing-values-in-shiny
@@ -65,7 +67,8 @@ finaltable <-
         format.POSIXct(Sys.time()), " ○ ",
         pipeline_label, " ○ ",
         #n_users, " users ○ ",
-        'nxf-tgs pipeline commit: ', arg[3]
+        'nxf-tgs pipeline commit: ', arg[3],
+        max_reads_label
       )
     ),
     # style = 'bootstrap',

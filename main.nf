@@ -88,6 +88,7 @@ def helpMessage() {
     outdir           : where to save results, default is 'output'
     nxf_ver          : nextflow version to use for the internal nextflow run, default is 24.04.2
     cpus             : number of cpus to use, default is 4 (this is the executor local total cpus, also passed to assembly workflow! - minimum is 4) 
+    max_reads        : cap number of reads per sample (first N reads), only applies to the published 01-fastq/01-bam files (all reads are used downstream), off by default
     -----------------------------------
     """
     .stripIndent(true)
@@ -106,6 +107,7 @@ log.info """\
     outdir          : ${params.outdir}
     nxf_ver         : ${params.nxf_ver}
     cpus            : ${params.cpus}
+    max_reads       : ${params.max_reads ?: 'off'}
     -----------------------------------------------------------------------------------------------------------------------
     """
     .stripIndent(true)
@@ -119,6 +121,10 @@ wf_ver = Channel.from(params.pipeline).join(wf_versions)
 isBamInput = file(params.reads).listFiles()?.any { subdir ->
     subdir.isDirectory() && subdir.listFiles()?.any { it.name.endsWith('.bam') }
 } ?: false
+
+if (params.max_reads != null && !(params.max_reads.toString().isLong() && params.max_reads.toString().toLong() > 0)) {
+    exit 1, "ERROR: --max_reads must be a positive integer, got '${params.max_reads}'"
+}
 
 // has to be a value channel
 reference_ch = Channel.value( file( "${projectDir}/assets/mg1655.fasta" ) )
@@ -169,8 +175,9 @@ process MERGE_READS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "$user - $samplename"
     // missing barcodes are filtered out upstream in prep_samplesheet, so real errors surface here
-    publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: '*.fastq.gz'
-    publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: '*.bam', enabled: isBamInput
+    // with --max_reads, only the published files are capped (capped/), downstream processes get all reads
+    publishDir "$params.outdir/$user/01-fastq", mode: 'copy', pattern: params.max_reads ? 'capped/*.fastq.gz' : '*.fastq.gz', saveAs: { fn -> file(fn).getName() }
+    publishDir "$params.outdir/$user/01-bam", mode: 'copy', pattern: params.max_reads ? 'capped/*.bam' : '*.bam', saveAs: { fn -> file(fn).getName() }, enabled: isBamInput
 
     input:
     tuple val(samplename), val(barcode), val(user), path(mypath)
@@ -178,6 +185,7 @@ process MERGE_READS {
     output: 
     tuple val(user), path('*.fastq.gz'), emit: merged_fastq_ch
     tuple val(user), path('*.bam'), optional: true, emit: merged_bam_ch
+    path('capped/*'), optional: true
     
     script:
     // Auto-detect bam or fastq based on file extensions in the barcode directory
@@ -207,6 +215,19 @@ process MERGE_READS {
         fi
         if [ \${#plain_files[@]} -gt 0 ]; then
             cat "\${plain_files[@]}" | pigz -p ${task.cpus} >> ${samplename}.fastq.gz
+        fi
+    fi
+
+    # --max_reads: capped copies (first N reads) for publishing only
+    if [ -n "${params.max_reads ?: ''}" ]; then
+        mkdir -p capped
+        if [ -f ${samplename}.bam ]; then
+            # bam input: only a capped bam (first N primary records) is published
+            samtools view -h -F 0x900 ${samplename}.bam | awk -v n=${params.max_reads ?: 0} '/^@/ { print; next } c++ < n' | \\
+                samtools view -b -o capped/${samplename}.bam -
+        else
+            # fastq input: only a capped fastq is published
+            seqkit head -n ${params.max_reads ?: 0} ${samplename}.fastq.gz | pigz -p ${task.cpus} > capped/${samplename}.fastq.gz
         fi
     fi
     """
@@ -444,7 +465,7 @@ process SAMPLE_SUMMARY {
     script:
     """
     gitcommit=\$(cat $workflow.projectDir/.git/logs/HEAD  | cut -f2 -d " " | tail -1 | cut -c-7)
-    sample_summary.R "*.csv" $workflow.runName \$gitcommit ${params.pipeline} ${wfVersionMap[params.pipeline] ?: 'N/A'}
+    sample_summary.R "*.csv" $workflow.runName \$gitcommit ${params.pipeline} ${wfVersionMap[params.pipeline] ?: 'N/A'} ${params.max_reads ?: 'null'}
     """
 }
 
@@ -553,7 +574,7 @@ process USER_REPORT {
     def pipeline_label = wfVersionMap[params.pipeline] ?: 'N/A'
     def ms_arg = mapping_summary ? mapping_summary : 'dummy_mapping.csv'
     """
-    user_report.R "$user" "$sample_status" "$ms_arg" "${params.pipeline} ${pipeline_label}" "${workflow.manifest.version ?: 'unknown'}"
+    user_report.R "$user" "$sample_status" "$ms_arg" "${params.pipeline} ${pipeline_label}" "${workflow.manifest.version ?: 'unknown'}" "${params.max_reads ?: 'null'}"
     """
 }
 

@@ -64,6 +64,13 @@
           "help_text": "Additional command-line arguments passed to the assembly workflow. Pass these as strings '--param1 value --param2 value'... ",
           "fa_icon": "fas fa-angle-right"
         },
+        "max_reads": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Cap the number of reads per sample",
+          "fa_icon": "fas fa-cut",
+          "help_text": "If set, only the first N reads per sample (barcode) are published to 01-fastq / 01-bam. Assembly, mapping and the raw reads report always use all reads. Off by default."
+        },
         "nxf_ver": {
           "type": "string",
           "description": "Nextflow version to use for the internal nextflow run",
