@@ -112,6 +112,16 @@ log.info """\
     """
     .stripIndent(true)
 
+// a flag given without a value (e.g. '--reads  --samplesheet x') becomes Boolean true in nextflow
+['reads', 'samplesheet', 'outdir'].each { p ->
+    if (!(params[p] instanceof CharSequence) || !params[p].toString().trim()) {
+        exit 1, "ERROR: --${p} needs a path, got '${params[p]}' (empty value?)"
+    }
+}
+if (!file(params.reads).isDirectory()) {
+    exit 1, "ERROR: --reads '${params.reads}' is not an existing directory"
+}
+
 reads_dir_ch = Channel.fromPath(params.reads, type: 'dir', checkIfExists: true)
 samplesheet_ch = Channel.fromPath(params.samplesheet, type: 'file', checkIfExists: true)
 wf_versions = Channel.from(wfVersionMap.collect { k, v -> [k, v] })
